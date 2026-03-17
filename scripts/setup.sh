@@ -11,6 +11,32 @@ set -euo pipefail
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$PROJECT_DIR"
 
+# ─── Detect piped execution (curl ... | bash) ────────────────────
+# When piped, stdin is not a terminal. Redirect reads from /dev/tty.
+PIPED=false
+if [ -t 0 ]; then
+  INPUT_FD=0
+elif [ -e /dev/tty ]; then
+  INPUT_FD=3
+  exec 3</dev/tty
+  PIPED=true
+else
+  INPUT_FD=""
+  PIPED=true
+fi
+
+# Wrapper for interactive prompts that works when piped from curl
+# Usage: ask VARNAME "prompt text" [default]
+ask() {
+  local VARNAME="$1" PROMPT="$2" DEFAULT="${3:-}"
+  if [ -n "$INPUT_FD" ]; then
+    read -rp "$PROMPT" "$VARNAME" <&"$INPUT_FD"
+  else
+    echo "${PROMPT}${DEFAULT} (auto)"
+    eval "$VARNAME='$DEFAULT'"
+  fi
+}
+
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
@@ -40,7 +66,7 @@ ensure_xcode_clt() {
 
   warn "Xcode Command Line Tools not installed (required for git and build tools)"
   echo ""
-  read -rp "  Install Xcode Command Line Tools now? (y/n) " INSTALL_CLT
+  ask INSTALL_CLT "  Install Xcode Command Line Tools now? (y/n) " "y"
   echo ""
   if [[ "$INSTALL_CLT" != "y" ]]; then
     fail "Xcode CLT is required. Install manually: xcode-select --install"
@@ -80,7 +106,7 @@ ensure_homebrew() {
 
   warn "Homebrew is not installed (required for installing Node.js, tmux, etc.)"
   echo ""
-  read -rp "  Install Homebrew now? (y/n) " INSTALL_BREW
+  ask INSTALL_BREW "  Install Homebrew now? (y/n) " "y"
   echo ""
   if [[ "$INSTALL_BREW" != "y" ]]; then
     fail "Homebrew is required on macOS. Install manually:"
@@ -136,7 +162,7 @@ ensure_git() {
 
   if [[ -z "$GIT_NAME" ]]; then
     warn "Git user.name is not configured (required for commits)"
-    read -rp "  Enter your name for git commits: " INPUT_NAME
+    ask INPUT_NAME "  Enter your name for git commits: " ""
     if [[ -n "$INPUT_NAME" ]]; then
       git config --global user.name "$INPUT_NAME"
       log "Set git user.name: $INPUT_NAME"
@@ -145,7 +171,7 @@ ensure_git() {
 
   if [[ -z "$GIT_EMAIL" ]]; then
     warn "Git user.email is not configured (required for commits)"
-    read -rp "  Enter your email for git commits: " INPUT_EMAIL
+    ask INPUT_EMAIL "  Enter your email for git commits: " ""
     if [[ -n "$INPUT_EMAIL" ]]; then
       git config --global user.email "$INPUT_EMAIL"
       log "Set git user.email: $INPUT_EMAIL"
@@ -174,7 +200,7 @@ setup_vscode() {
     if [[ -n "$VSCODE_BIN" ]]; then
       warn "VS Code found but 'code' command is not in PATH"
       echo ""
-      read -rp "  Add VS Code 'code' command to PATH? (y/n) " ADD_CODE
+      ask ADD_CODE "  Add VS Code 'code' command to PATH? (y/n) " "y"
       if [[ "$ADD_CODE" == "y" ]]; then
         local TARGET="/usr/local/bin/code"
         sudo mkdir -p /usr/local/bin 2>/dev/null || true
@@ -202,7 +228,7 @@ setup_vscode() {
   echo "    Tailwind CSS        (bradlc.vscode-tailwindcss)"
   echo "    Prettier            (esbenp.prettier-vscode)"
   echo ""
-  read -rp "  Install recommended VS Code extensions? (y/n) " INSTALL_EXT
+  ask INSTALL_EXT "  Install recommended VS Code extensions? (y/n) " "y"
   if [[ "$INSTALL_EXT" == "y" ]]; then
     for ext in "${VSCODE_EXTENSIONS[@]}"; do
       if code --list-extensions 2>/dev/null | grep -qi "$ext"; then
@@ -372,7 +398,7 @@ ensure_node() {
 
   warn "Node.js is not installed (required for Claude CLI and npm packages)"
   echo ""
-  read -rp "  Install Node.js now? (y/n) " INSTALL_NODE
+  ask INSTALL_NODE "  Install Node.js now? (y/n) " "y"
   echo ""
   if [[ "$INSTALL_NODE" == "y" ]]; then
     install_node
@@ -415,7 +441,7 @@ ensure_claude() {
 
   warn "Claude CLI is not installed"
   echo ""
-  read -rp "  Install Claude CLI now? (y/n) " INSTALL_CLAUDE
+  ask INSTALL_CLAUDE "  Install Claude CLI now? (y/n) " "y"
   echo ""
   if [[ "$INSTALL_CLAUDE" == "y" ]]; then
     install_claude
@@ -433,7 +459,7 @@ ensure_tmux() {
 
   warn "tmux is not installed (required for agent team orchestration)"
   echo ""
-  read -rp "  Install tmux now? (y/n) " INSTALL_TMUX
+  ask INSTALL_TMUX "  Install tmux now? (y/n) " "y"
   echo ""
   if [[ "$INSTALL_TMUX" == "y" ]]; then
     install_tmux
@@ -551,13 +577,13 @@ mkdir -p .claude/snapshots
 # ─── .gitignore additions ────────────────────────────────────────
 
 if [ -f .gitignore ]; then
-  IGNORE_ENTRIES=(".env" ".env.*")
+  IGNORE_ENTRIES=(".env" ".env.*" ".cleo/")
   for entry in "${IGNORE_ENTRIES[@]}"; do
     if ! grep -qF "$entry" .gitignore 2>/dev/null; then
       echo "$entry" >> .gitignore
     fi
   done
-  log "Updated .gitignore (env files)"
+  log "Updated .gitignore (env files, .cleo)"
 else
   info "No .gitignore found — skipping"
 fi
@@ -582,8 +608,25 @@ register_quick_commands() {
     SHELL_RC="$HOME/.bashrc"
   fi
 
-  # Skip if already registered
+  local NEEDS_PP=false NEEDS_PP_SETUP=false NEEDS_CLEANUP=false
+
+  # Check for correct pp alias (must cd to this project dir)
   if grep -qF "alias pp=" "$SHELL_RC" 2>/dev/null; then
+    # Exists — check if it points to the right directory
+    if ! grep -qF "alias pp='cd \"${PROJECT_DIR}\"" "$SHELL_RC" 2>/dev/null; then
+      NEEDS_PP=true
+      NEEDS_CLEANUP=true
+    fi
+  else
+    NEEDS_PP=true
+  fi
+
+  # Check for pp-setup alias
+  if ! grep -qF "alias pp-setup=" "$SHELL_RC" 2>/dev/null; then
+    NEEDS_PP_SETUP=true
+  fi
+
+  if [ "$NEEDS_PP" = false ] && [ "$NEEDS_PP_SETUP" = false ]; then
     log "Quick commands already registered (pp, pp-setup)"
     return 0
   fi
@@ -593,10 +636,18 @@ register_quick_commands() {
   echo "    pp         — launch Claude session (tmux + git watch split pane)"
   echo "    pp-setup   — re-run setup for this project"
   echo ""
-  read -rp "  Add 'pp' and 'pp-setup' to $SHELL_RC? (y/n) " ADD_PP
+  ask ADD_PP "  Add 'pp' and 'pp-setup' to $SHELL_RC? (y/n) " "y"
   if [[ "$ADD_PP" != "y" ]]; then
     info "Skipping quick commands. Add manually later."
     return 0
+  fi
+
+  # Remove old/stale pp aliases before adding new ones
+  if [ "$NEEDS_CLEANUP" = true ]; then
+    # Remove old alias lines and their comment headers
+    sed -i.bak '/# PayPong.*Claude session/d;/# Claude Code.*quick commands/d;/alias pp=/d' "$SHELL_RC"
+    rm -f "${SHELL_RC}.bak"
+    info "Cleaned up old pp alias"
   fi
 
   cat >> "$SHELL_RC" <<CMDS
@@ -612,7 +663,14 @@ CMDS
 
 register_quick_commands
 
-# ─── Summary + Launch ────────────────────────────────────────────
+# ─── Clean up leftover files ─────────────────────────────────────
+
+if [ -d .cleo ]; then
+  rm -rf .cleo
+  log "Removed leftover .cleo directory"
+fi
+
+# ─── Summary ────────────────────────────────────────────────────
 
 echo ""
 echo "╔══════════════════════════════════════╗"
@@ -661,7 +719,5 @@ echo "    Prefix + -                   Split pane vertically"
 echo "    Prefix + z                   Zoom/unzoom current pane"
 echo "    Mouse                        Click to focus, drag to resize"
 echo ""
-
-log "Launching Claude session..."
+echo -e "  ${GREEN}To start:${NC}  ./scripts/start.sh   (or just type 'pp')"
 echo ""
-exec ./scripts/start.sh
