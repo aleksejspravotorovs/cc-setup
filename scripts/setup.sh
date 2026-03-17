@@ -243,6 +243,11 @@ install_project_deps() {
     return 0
   fi
 
+  if [[ ! -f package.json ]]; then
+    info "No package.json found — skipping npm install"
+    return 0
+  fi
+
   if ! command -v npm >/dev/null 2>&1; then
     warn "npm not available — cannot install project dependencies"
     return 1
@@ -602,7 +607,9 @@ if is_setup_complete; then
   fi
 
   # ─── Project dependencies ──────────────────────────────────────
-  if [ -d node_modules ]; then
+  if [ ! -f package.json ]; then
+    log "No package.json — no project dependencies needed"
+  elif [ -d node_modules ]; then
     log "Project dependencies installed (node_modules)"
   else
     warn "node_modules missing — run 'npm install'"
