@@ -21,9 +21,9 @@ The setup script detects what's missing and offers to install each item:
 5. **VS Code extensions** — ESLint, Tailwind CSS IntelliSense, Prettier
 6. **Windows Terminal** — recommended for split-pane view (checked, not auto-installed)
 
-It also creates:
+It also downloads:
 - `.claude\agents\` — 7 agent definitions (lead, frontend, backend, devops, skeptic, qa, researcher)
-- `.claude\commands\` — 5 slash commands (/prime, /build-with-agent-team, /deploy, /cleo-install, /research)
+- `.claude\commands\` — 4 slash commands (/prime, /build-with-agent-team, /deploy, /research)
 - `.claude\settings.json` — agent teams configuration
 - `scripts\start.ps1` — Windows Terminal session launcher
 
@@ -32,20 +32,19 @@ It also creates:
 ### Start a Claude session
 
 ```powershell
-cc
+pp
+```
+
+### Re-run setup
+
+```powershell
+pp-setup
 ```
 
 ### Set up a new project
 
 ```powershell
 mkdir my-new-project; cd my-new-project
-cc-setup
-```
-
-Or if you haven't run setup before in any project:
-
-```powershell
-New-Item -ItemType Directory -Path scripts -Force
 irm https://raw.githubusercontent.com/AleksejsPravotorovs/cc-setup/main/install.ps1 | iex
 ```
 
@@ -60,8 +59,8 @@ irm https://raw.githubusercontent.com/AleksejsPravotorovs/cc-setup/main/install.
 
 ## Troubleshooting
 
-**"cc: The term 'cc' is not recognized"**
-Restart PowerShell or run `. $PROFILE`. The setup adds `cc` and `cc-setup` to your PowerShell profile.
+**"pp: The term 'pp' is not recognized"** (or whatever alias you chose)
+Restart PowerShell or run `. $PROFILE`. The setup adds your quick commands to your PowerShell profile.
 
 **"execution of scripts is disabled"**
 Use `.\scripts\setup.bat` instead — it bypasses execution policy automatically.

@@ -20,7 +20,7 @@ function Info($msg) { Write-Host "  [ii] $msg" -ForegroundColor Cyan }
 function Fail($msg) { Write-Host "  [XX] $msg" -ForegroundColor Red }
 
 $ExpectedAgents   = @("lead", "frontend", "backend", "devops", "skeptic", "qa", "researcher")
-$ExpectedCommands = @("prime", "build-with-agent-team", "deploy", "cleo-install", "research")
+$ExpectedCommands = @("prime", "build-with-agent-team", "deploy", "research")
 $VscodeExtensions = @("dbaeumer.vscode-eslint", "bradlc.vscode-tailwindcss", "esbenp.prettier-vscode")
 $CreatedAnything  = $false
 
@@ -250,12 +250,12 @@ if (Test-SetupComplete) {
         Info "VS Code 'code' command not in PATH (optional)"
     }
 
-    # Global commands
+    # Quick commands
     $psProf = $PROFILE
-    if ((Test-Path $psProf) -and ((Get-Content $psProf -Raw -ErrorAction SilentlyContinue) -match 'function cc-setup')) {
-        Log "Global commands registered (cc, cc-setup)"
+    if ((Test-Path $psProf) -and ((Get-Content $psProf -Raw -ErrorAction SilentlyContinue) -match 'function pp ')) {
+        Log "Quick commands registered (pp, pp-setup)"
     } else {
-        Warn "Global commands (cc, cc-setup) not in PowerShell profile"
+        Warn "Quick commands (pp, pp-setup) not in PowerShell profile"
         $issues++
     }
 
@@ -331,7 +331,7 @@ if (-not $claudeOk) {
 }
 
 if (-not $nodeOk) {
-    Warn "Node.js missing -- CLEO and some features will not be available."
+    Warn "Node.js missing -- some features will not be available."
 }
 
 Log "Pre-flight passed"
@@ -686,7 +686,7 @@ foreach ($dir in @(".claude/commands", ".claude/snapshots")) {
 if (-not (Test-Path ".claude/commands/prime.md")) {
 $primeCmd = @'
 ---
-description: Lean codebase prime -- context load + CLEO handoff (Claude Code)
+description: Lean codebase prime -- context load (Claude Code)
 allowed-tools: Read, Glob
 ---
 
@@ -730,12 +730,7 @@ Missing/unexpected: [anything notable]
 
 Glob for `.mcp.json`. If found, note "MCP configured."
 
-## 3) CLEO session (skip -- not configured)
-
-CLEO is NOT configured for this project (no `.cleo/config.json` exists).
-Report: `CLEO: not configured`
-
-## 4) Session template
+## 3) Session template
 
 Output once after prime, then proceed to work:
 ```
@@ -743,7 +738,6 @@ Goal: (1 sentence)
 Plan: (3-7 steps)
 Lock: (files not to touch)
 Change: (files to edit)
-CLEO: [session ID + active task, or "not initialized"]
 Next: (first action)
 ```
 
@@ -854,26 +848,6 @@ Create `.claude/snapshots/last-deploy.md` with changes, build status, and contex
     $CreatedAnything = $true
 }
 
-if (-not (Test-Path ".claude/commands/cleo-install.md")) {
-$cleoCmd = @'
----
-description: Install CLEO and adapt it to the current project
-allowed-tools: Bash, Read, Edit, Write, Glob, Grep
----
-
-# /cleo-install -- Inject CLEO into Project
-
-1. Check: `which cleo`, `node -v`, `.cleo/config.json`
-2. Install: `npm install -g @cleocode/cleo`
-3. Initialize: `cleo init`
-4. Adapt `.cleo/config.json` to project stack
-5. Verify: `cleo --version && ls .cleo/`
-'@
-    $cleoCmd | Set-Content ".claude/commands/cleo-install.md" -Encoding UTF8
-    Log "Created .claude\commands\cleo-install.md"
-    $CreatedAnything = $true
-}
-
 if (-not (Test-Path ".claude/commands/research.md")) {
 $researchCmd = @'
 ---
@@ -905,7 +879,7 @@ Log "Commands ready: $cmdCount/$($ExpectedCommands.Count) ($($ExpectedCommands -
 
 if (Test-Path ".gitignore") {
     $ignoreContent = Get-Content ".gitignore" -Raw -ErrorAction SilentlyContinue
-    $entries = @(".cleo/*.db", ".cleo/*.db-*", ".cleo/brain.db", ".env", ".env.*")
+    $entries = @(".env", ".env.*")
     foreach ($entry in $entries) {
         if ($ignoreContent -notmatch [regex]::Escape($entry)) {
             Add-Content ".gitignore" $entry
@@ -914,73 +888,41 @@ if (Test-Path ".gitignore") {
     Log "Updated .gitignore"
 }
 
-# --- CLEO (optional) ---------------------------------------------
-
-if (-not (Test-Path ".cleo/config.json")) {
-    if ($nodeOk) {
-        Write-Host ""
-        $installCleo = Read-Host "    Install CLEO now? (y/n)"
-        if ($installCleo -eq "y") {
-            if (Get-Command cleo -ErrorAction SilentlyContinue) {
-                Log "CLEO already installed: $(cleo --version)"
-            } else {
-                Info "Installing CLEO..."
-                try { npm install -g @cleocode/cleo } catch { Warn "npm install failed" }
-            }
-            if (Get-Command cleo -ErrorAction SilentlyContinue) {
-                Info "Initializing CLEO..."
-                try { cleo init } catch { Warn "cleo init failed -- run manually" }
-            }
-        } else {
-            Info "Skipping CLEO. Run /cleo-install inside Claude later."
-        }
-    }
-} else {
-    Log "CLEO already initialized"
-}
-
-# --- Global commands (cc, cc-setup) --------------------------------
+# --- Quick commands (pp, pp-setup) --------------------------------
 
 $psProfile = $PROFILE
 if (-not (Test-Path $psProfile)) {
-    # Profile file doesn't exist yet
     $profileDir = Split-Path -Parent $psProfile
     if (-not (Test-Path $profileDir)) { New-Item -ItemType Directory -Path $profileDir -Force | Out-Null }
 }
 
-$hasGlobalCmds = $false
+$hasQuickCmds = $false
 if (Test-Path $psProfile) {
     $profileContent = Get-Content $psProfile -Raw -ErrorAction SilentlyContinue
-    if ($profileContent -match 'function cc-setup') { $hasGlobalCmds = $true }
+    if ($profileContent -match 'function pp ') { $hasQuickCmds = $true }
 }
 
-if ($hasGlobalCmds) {
-    Log "Global commands already registered (cc, cc-setup)"
+if ($hasQuickCmds) {
+    Log "Quick commands already registered (pp, pp-setup)"
 } else {
     Write-Host ""
-    Info "Global commands: 'cc' starts Claude, 'cc-setup' runs setup -- work in any project"
-    $addGlobal = Read-Host "    Add 'cc' and 'cc-setup' to PowerShell profile? (y/n)"
-    if ($addGlobal -eq "y") {
-        $globalBlock = @'
+    Info "Quick commands:"
+    Write-Host "    pp         -- launch Claude session"
+    Write-Host "    pp-setup   -- re-run setup for this project"
+    Write-Host ""
+    $addCmds = Read-Host "    Add 'pp' and 'pp-setup' to PowerShell profile? (y/n)"
+    if ($addCmds -eq "y") {
+        $cmdBlock = @"
 
-# Claude Code -- global commands (added by setup.ps1)
-function cc {
-    if (Test-Path "scripts\start.bat") { & ".\scripts\start.bat" @args }
-    elseif (Test-Path "scripts\start.ps1") { & ".\scripts\start.ps1" @args }
-    else { Write-Host "No start script found. Run cc-setup first." -ForegroundColor Red }
-}
-function cc-setup {
-    if (Test-Path "scripts\setup.bat") { & ".\scripts\setup.bat" @args }
-    elseif (Test-Path "scripts\setup.ps1") { powershell -ExecutionPolicy Bypass -File ".\scripts\setup.ps1" @args }
-    elseif (Test-Path "setup.ps1") { powershell -ExecutionPolicy Bypass -File ".\setup.ps1" @args }
-    else { Write-Host "No setup script found. Copy it into scripts\ from an existing project." -ForegroundColor Red }
-}
-'@
-        Add-Content $psProfile $globalBlock
-        Log "Added 'cc' and 'cc-setup' to $psProfile"
+# Claude Code -- quick commands (added by setup.ps1)
+function pp { Set-Location "$ProjectDir"; & ".\scripts\start.ps1" @args }
+function pp-setup { Set-Location "$ProjectDir"; powershell -ExecutionPolicy Bypass -File ".\scripts\setup.ps1" @args }
+"@
+        Add-Content $psProfile $cmdBlock
+        Log "Added 'pp' and 'pp-setup' to $psProfile"
         Info "Restart PowerShell or run '. `$PROFILE' to use them"
     } else {
-        Info "Skipping global commands. Add manually later."
+        Info "Skipping quick commands. Add manually later."
     }
 }
 
@@ -1064,11 +1006,9 @@ if (Get-Command code -ErrorAction SilentlyContinue) {
 Write-Host "    VS Code extensions:          ESLint, Tailwind CSS, Prettier"
 }
 Write-Host ""
-Write-Host "  Launch:"
-Write-Host "    cc                           Start Claude session (any project)"
-Write-Host "    cc-setup                     Run setup (any project)"
-Write-Host "    .\scripts\start.bat          Launch directly (Windows)"
-Write-Host "    ./scripts/start.sh           Launch directly (macOS/Linux)"
+Write-Host "  Quick commands (added to PowerShell profile):"
+Write-Host "    pp                           Launch Claude session"
+Write-Host "    pp-setup                     Re-run setup for this project"
 Write-Host ""
 Write-Host "  Inside Claude:"
 Write-Host "    /prime                       Prime the session with codebase context"

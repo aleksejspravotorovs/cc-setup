@@ -27,18 +27,21 @@ Open your project folder in VS Code, open the terminal, paste the command, and f
 
 **Project configured**:
 - `.claude/agents/` — 7 agent definitions (lead, frontend, backend, devops, skeptic, qa, researcher)
-- `.claude/commands/` — 5 slash commands (/prime, /build-with-agent-team, /deploy, /research, /cleo-install)
+- `.claude/commands/` — 4 slash commands (/prime, /build-with-agent-team, /deploy, /research)
 - Agent teams settings, tmux config, session launcher
 
-**Global commands added**:
-- `cc` — start a Claude session (works in any project)
-- `cc-setup` — run setup in any project
+**Quick commands added** (persisted in shell profile):
+- `pp` — launch Claude session (tmux + split pane git watch, `--dangerously-skip-permissions`)
+- `pp-setup` — re-run setup for this project
 
 ## Usage
 
 ```bash
 # Start working
-cc
+pp
+
+# Re-run setup
+pp-setup
 
 # Inside Claude
 /prime                    # Load codebase context

@@ -15,7 +15,7 @@ Write-Host ""
 
 New-Item -ItemType Directory -Path scripts -Force | Out-Null
 
-$files = @("setup.ps1", "setup.bat", "start.ps1", "start.bat")
+$files = @("setup.ps1", "start.ps1")
 foreach ($file in $files) {
     Write-Host "  Downloading scripts\$file..."
     Invoke-WebRequest "$repo/scripts/$file" -OutFile "scripts\$file" -UseBasicParsing
