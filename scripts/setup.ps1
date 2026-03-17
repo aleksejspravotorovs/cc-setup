@@ -295,9 +295,8 @@ if (Test-SetupComplete) {
     }
 
     Write-Host ""
-    Log "Launching Claude session..."
+    Write-Host "  To start:  .\scripts\start.ps1   (or just type 'pp')" -ForegroundColor Green
     Write-Host ""
-    & "$ProjectDir\scripts\start.ps1"
     exit 0
 }
 
@@ -1017,6 +1016,5 @@ Write-Host "    /research <topic>            Spawn research agent"
 Write-Host "    /deploy                      Commit, push, snapshot"
 Write-Host ""
 
-Log "Launching Claude session..."
+Write-Host "  To start:  .\scripts\start.ps1   (or just type 'pp')" -ForegroundColor Green
 Write-Host ""
-& "$ProjectDir\scripts\start.ps1"
