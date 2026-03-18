@@ -134,7 +134,7 @@ function Ensure-Npm {
         return $true
     }
 
-    # npm should come with Node.js — try refreshing PATH first
+    # npm should come with Node.js -- try refreshing PATH first
     Refresh-Path
     if (Get-Command npm -ErrorAction SilentlyContinue) {
         Log "npm found: $(npm --version)"
@@ -160,7 +160,7 @@ function Ensure-Npm {
         Info "This usually means you need to close and reopen your terminal after Node.js install"
         Info "If the problem persists, reinstall Node.js from https://nodejs.org"
     } else {
-        Warn "npm not available — install Node.js first (npm is bundled with it)"
+        Warn "npm not available -- install Node.js first (npm is bundled with it)"
     }
     return $false
 }
@@ -200,7 +200,7 @@ function Install-ClaudeCLI {
 }
 
 # ===================================================================
-# MAIN SETUP (idempotent — runs the same whether first or repeat)
+# MAIN SETUP (idempotent -- runs the same whether first or repeat)
 # ===================================================================
 
 Write-Host ""

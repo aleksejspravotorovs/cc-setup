@@ -36,7 +36,7 @@ if ($InVSCode) {
     Write-Host ""
     claude --dangerously-skip-permissions
 } elseif (Get-Command wt.exe -ErrorAction SilentlyContinue) {
-    # Standalone: Windows Terminal split pane — Claude (left 60%) + git watch (right 40%)
+    # Standalone: Windows Terminal split pane -- Claude (left 60%) + git watch (right 40%)
     $gitWatch = "while (`$true) { Clear-Host; Get-Date -Format 'HH:mm:ss'; Write-Host '-- git status --'; git status -sb; Write-Host ''; Write-Host '-- changed files --'; git diff --stat; Start-Sleep 3 }"
 
     wt --title "CLAUDE [$SessionName]" -d $ProjectDir `
