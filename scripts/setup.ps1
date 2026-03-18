@@ -23,6 +23,26 @@ $ExpectedCommands = @("prime", "build-with-agent-team", "deploy", "research")
 $VscodeExtensions = @("dbaeumer.vscode-eslint", "bradlc.vscode-tailwindcss", "esbenp.prettier-vscode")
 
 # ===================================================================
+# EXECUTION POLICY -- allow scripts to run (profile, pp, pp-setup)
+# ===================================================================
+
+$currentPolicy = Get-ExecutionPolicy -Scope CurrentUser
+if ($currentPolicy -eq "Restricted" -or $currentPolicy -eq "Undefined") {
+    Warn "PowerShell execution policy is '$currentPolicy' -- scripts (including your profile) are blocked"
+    Write-Host ""
+    $setPolicy = Read-Host "    Set to 'RemoteSigned' for current user? (y/n)"
+    if ($setPolicy -eq "y") {
+        Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+        Log "Execution policy set to RemoteSigned (current user)"
+    } else {
+        Warn "Skipping -- your PowerShell profile and 'pp' commands may not work"
+        Info "Fix manually: Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser"
+    }
+} else {
+    Log "Execution policy: $currentPolicy"
+}
+
+# ===================================================================
 # INSTALL HELPERS
 # ===================================================================
 
