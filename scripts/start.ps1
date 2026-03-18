@@ -12,32 +12,74 @@ Set-Location $ProjectDir
 
 $SessionName = (Split-Path -Leaf $ProjectDir).ToLower() -replace '[.\s]', '-'
 
-# --- Pre-flight ---------------------------------------------------
+# --- Helper: safe WSL command execution ---------------------------
 
-if (-not (Get-Command wsl -ErrorAction SilentlyContinue)) {
-    Write-Host "[X] WSL not found -- required for tmux split-pane agent teams" -ForegroundColor Red
-    Write-Host "    Install: wsl --install" -ForegroundColor White
-    Write-Host "    Then restart your computer and re-run: .\scripts\setup.ps1" -ForegroundColor White
-    exit 1
+function Invoke-WSL {
+    param([string]$Command)
+    try {
+        $result = wsl bash -c $Command 2>&1 | Out-String
+        return $result.Trim()
+    } catch {
+        return ""
+    }
 }
 
-# Check tmux is available in WSL
-$tmuxCheck = wsl bash -c "command -v tmux" 2>$null
-if (-not $tmuxCheck) {
-    Write-Host "[X] tmux not found in WSL -- run .\scripts\setup.ps1 to install" -ForegroundColor Red
-    exit 1
+# --- Pre-flight: WSL with a distro --------------------------------
+
+# Check WSL has a working distro
+$distroCheck = ""
+try { $distroCheck = wsl echo "ok" 2>&1 | Out-String } catch {}
+
+if ($distroCheck.Trim() -ne "ok") {
+    Write-Host "[!!] WSL has no Linux distribution installed" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "    Installing Ubuntu (this takes a few minutes)..." -ForegroundColor Cyan
+    Write-Host "    You will be asked to create a Unix username and password." -ForegroundColor Cyan
+    Write-Host ""
+
+    # Install Ubuntu -- this is interactive (user creates username/password)
+    wsl --install -d Ubuntu
+
+    Write-Host ""
+    Write-Host "[i] Ubuntu installed. Re-run 'pp' or '.\scripts\start.ps1' to continue." -ForegroundColor Cyan
+    exit 0
 }
 
-# Check claude is available in WSL
-$claudeCheck = wsl bash -c "command -v claude" 2>$null
-if (-not $claudeCheck) {
-    Write-Host "[X] Claude CLI not found in WSL -- run .\scripts\setup.ps1 to install" -ForegroundColor Red
-    exit 1
+# --- Pre-flight: tmux in WSL -------------------------------------
+
+$tmuxCheck = Invoke-WSL "command -v tmux"
+if ($tmuxCheck -notmatch "tmux") {
+    Write-Host "[i] Installing tmux in WSL..." -ForegroundColor Cyan
+    wsl bash -c "sudo apt-get update -qq && sudo apt-get install -y tmux"
+}
+
+# --- Pre-flight: Claude CLI in WSL --------------------------------
+
+$claudeCheck = Invoke-WSL "command -v claude"
+if ($claudeCheck -notmatch "claude") {
+    Write-Host "[i] Installing Claude CLI in WSL..." -ForegroundColor Cyan
+
+    # Ensure Node.js
+    $nodeCheck = Invoke-WSL "command -v node"
+    if ($nodeCheck -notmatch "node") {
+        Write-Host "[i] Installing Node.js in WSL..." -ForegroundColor Cyan
+        wsl bash -c "curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash - && sudo apt-get install -y nodejs"
+    }
+
+    wsl bash -c "sudo npm install -g @anthropic-ai/claude-code"
+
+    # Verify
+    $claudeCheck = Invoke-WSL "command -v claude"
+    if ($claudeCheck -notmatch "claude") {
+        Write-Host "[X] Claude CLI installation failed in WSL" -ForegroundColor Red
+        Write-Host "    Try manually: wsl bash -c 'sudo npm install -g @anthropic-ai/claude-code'" -ForegroundColor White
+        exit 1
+    }
 }
 
 # --- Convert Windows path to WSL path -----------------------------
 
-$wslPath = (wsl wslpath -u "$ProjectDir").Trim()
+$wslPath = (Invoke-WSL "wslpath -u '$ProjectDir'")
 
 # --- Launch Claude in tmux via WSL --------------------------------
 
