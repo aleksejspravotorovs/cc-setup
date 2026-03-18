@@ -55,9 +55,9 @@ if ($tmuxCheck -notmatch "tmux") {
 
 # --- Pre-flight: Claude CLI in WSL --------------------------------
 
-$claudeCheck = Invoke-WSL "command -v claude"
-if ($claudeCheck -notmatch "claude") {
-    Write-Host "[i] Installing Claude CLI in WSL..." -ForegroundColor Cyan
+$claudeVer = Invoke-WSL "claude --version 2>/dev/null | head -1"
+if ($claudeVer -notmatch "\d+\.\d+") {
+    Write-Host "[i] Claude CLI not working in WSL -- installing..." -ForegroundColor Cyan
 
     # Ensure Node.js
     $nodeCheck = Invoke-WSL "command -v node"
@@ -68,14 +68,15 @@ if ($claudeCheck -notmatch "claude") {
 
     wsl bash -c "sudo npm install -g @anthropic-ai/claude-code"
 
-    # Verify
-    $claudeCheck = Invoke-WSL "command -v claude"
-    if ($claudeCheck -notmatch "claude") {
+    # Verify it actually runs
+    $claudeVer = Invoke-WSL "claude --version 2>/dev/null | head -1"
+    if ($claudeVer -notmatch "\d+\.\d+") {
         Write-Host "[X] Claude CLI installation failed in WSL" -ForegroundColor Red
         Write-Host "    Try manually: wsl bash -c 'sudo npm install -g @anthropic-ai/claude-code'" -ForegroundColor White
         exit 1
     }
 }
+Write-Host "[OK] Claude CLI in WSL: $claudeVer" -ForegroundColor Green
 
 # --- Convert Windows path to WSL path -----------------------------
 
@@ -96,11 +97,21 @@ Write-Host ""
 
 # Kill previous session if exists, then create new tmux session with Claude
 # The tmux session runs inside WSL with access to the project via /mnt/
+# Verify the path works
+$pathCheck = Invoke-WSL "test -d '$wslPath' && echo ok"
+if ($pathCheck -ne "ok") {
+    Write-Host "[X] WSL cannot access project path: $wslPath" -ForegroundColor Red
+    Write-Host "    Make sure your project is on a Windows drive (C:, D:, etc.)" -ForegroundColor White
+    exit 1
+}
+
+# Launch tmux -- if claude crashes, keep the pane open to show the error
 $tmuxCmd = @"
 cd '$wslPath' && \
 export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 && \
 tmux kill-session -t '$SessionName' 2>/dev/null; \
-tmux new-session -s '$SessionName' -c '$wslPath' 'claude --dangerously-skip-permissions'
+tmux new-session -s '$SessionName' -c '$wslPath' \
+  'claude --dangerously-skip-permissions; echo; echo \"[Claude exited. Press Enter to close.]\"; read'
 "@
 
 wsl bash -c $tmuxCmd
