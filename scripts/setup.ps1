@@ -229,16 +229,27 @@ function Install-ClaudeCLI {
 # ===================================================================
 
 function Ensure-WSL {
-    if (-not (Get-Command wsl -ErrorAction SilentlyContinue)) {
+    # wsl.exe exists as a stub on Windows even when WSL isn't installed,
+    # so we can't trust Get-Command. Try running it and check the result.
+    $wslInstalled = $false
+    try {
+        $wslStatus = wsl --status 2>&1 | Out-String
+        # If --status succeeds without "not installed" message, WSL is enabled
+        if ($wslStatus -notmatch "not installed" -and $wslStatus -notmatch "is not") {
+            $wslInstalled = $true
+        }
+    } catch {
+        $wslInstalled = $false
+    }
+
+    if (-not $wslInstalled) {
         Warn "WSL is not installed (required for tmux split-pane agent teams)"
         Write-Host ""
         $install = Read-Host "    Install WSL now? (y/n)"
         if ($install -eq "y") {
-            Info "Installing WSL (this may take a few minutes)..."
-            wsl --install --no-distribution 2>$null
-            # Install Ubuntu as default distro
-            Info "Installing Ubuntu distro..."
-            wsl --install -d Ubuntu 2>$null
+            Info "Installing WSL with Ubuntu (this may take a few minutes)..."
+            # wsl --install enables WSL and installs Ubuntu by default
+            try { wsl --install 2>&1 | Out-Null } catch {}
             Write-Host ""
             Warn "WSL installed. You MUST restart your computer before continuing."
             Info "After restart, re-run: .\scripts\setup.ps1"
@@ -252,16 +263,25 @@ function Ensure-WSL {
     }
 
     # Check a distro is actually installed
-    $distros = (wsl --list --quiet 2>$null) | Where-Object { $_ -and $_.Trim() }
-    if (-not $distros) {
-        Warn "WSL is installed but no Linux distribution found"
+    $hasDistro = $false
+    try {
+        $distros = (wsl --list --quiet 2>&1 | Out-String).Trim()
+        if ($distros -and $distros -notmatch "not installed" -and $distros -notmatch "is not") {
+            $hasDistro = $true
+        }
+    } catch {}
+
+    if (-not $hasDistro) {
+        Warn "WSL is enabled but no Linux distribution found"
         Write-Host ""
         $install = Read-Host "    Install Ubuntu distro now? (y/n)"
         if ($install -eq "y") {
             Info "Installing Ubuntu..."
-            wsl --install -d Ubuntu 2>$null
+            try { wsl --install -d Ubuntu 2>&1 | Out-Null } catch {}
             Warn "Distro installed. You may need to restart your terminal."
             Info "After restart, re-run: .\scripts\setup.ps1"
+            Read-Host "Press Enter to exit"
+            exit 0
         } else {
             Fail "A WSL distro is required. Install: wsl --install -d Ubuntu"
             return $false
@@ -273,9 +293,11 @@ function Ensure-WSL {
 }
 
 function Ensure-TmuxInWSL {
-    $tmuxCheck = wsl bash -c "command -v tmux" 2>$null
-    if ($tmuxCheck) {
-        $tmuxVer = (wsl bash -c "tmux -V" 2>$null).Trim()
+    $tmuxCheck = $null
+    try { $tmuxCheck = wsl bash -c "command -v tmux" 2>&1 | Out-String } catch {}
+    if ($tmuxCheck -and $tmuxCheck.Trim() -match "tmux") {
+        $tmuxVer = ""
+        try { $tmuxVer = (wsl bash -c "tmux -V" 2>&1 | Out-String).Trim() } catch {}
         Log "tmux found in WSL: $tmuxVer"
         return $true
     }
@@ -285,9 +307,9 @@ function Ensure-TmuxInWSL {
     $install = Read-Host "    Install tmux in WSL now? (y/n)"
     if ($install -eq "y") {
         Info "Installing tmux in WSL..."
-        wsl bash -c "sudo apt-get update -qq && sudo apt-get install -y tmux"
-        $tmuxCheck = wsl bash -c "command -v tmux" 2>$null
-        if ($tmuxCheck) {
+        try { wsl bash -c "sudo apt-get update -qq && sudo apt-get install -y tmux" } catch {}
+        try { $tmuxCheck = wsl bash -c "command -v tmux" 2>&1 | Out-String } catch {}
+        if ($tmuxCheck -and $tmuxCheck.Trim() -match "tmux") {
             Log "tmux installed in WSL"
             return $true
         } else {
@@ -301,9 +323,11 @@ function Ensure-TmuxInWSL {
 }
 
 function Ensure-ClaudeInWSL {
-    $claudeCheck = wsl bash -c "command -v claude" 2>$null
-    if ($claudeCheck) {
-        $claudeVer = (wsl bash -c "claude --version 2>/dev/null | head -1" 2>$null).Trim()
+    $claudeCheck = $null
+    try { $claudeCheck = wsl bash -c "command -v claude" 2>&1 | Out-String } catch {}
+    if ($claudeCheck -and $claudeCheck.Trim() -match "claude") {
+        $claudeVer = ""
+        try { $claudeVer = (wsl bash -c "claude --version 2>/dev/null | head -1" 2>&1 | Out-String).Trim() } catch {}
         Log "Claude CLI found in WSL: $claudeVer"
         return $true
     }
@@ -313,17 +337,18 @@ function Ensure-ClaudeInWSL {
     $install = Read-Host "    Install Claude CLI in WSL now? (y/n)"
     if ($install -eq "y") {
         # Ensure Node.js is available in WSL
-        $nodeCheck = wsl bash -c "command -v node" 2>$null
-        if (-not $nodeCheck) {
+        $nodeCheck = $null
+        try { $nodeCheck = wsl bash -c "command -v node" 2>&1 | Out-String } catch {}
+        if (-not $nodeCheck -or $nodeCheck.Trim() -notmatch "node") {
             Info "Installing Node.js in WSL..."
-            wsl bash -c "curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash - && sudo apt-get install -y nodejs"
+            try { wsl bash -c "curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash - && sudo apt-get install -y nodejs" } catch {}
         }
 
         Info "Installing Claude CLI in WSL (npm install -g)..."
-        wsl bash -c "sudo npm install -g @anthropic-ai/claude-code"
+        try { wsl bash -c "sudo npm install -g @anthropic-ai/claude-code" } catch {}
 
-        $claudeCheck = wsl bash -c "command -v claude" 2>$null
-        if ($claudeCheck) {
+        try { $claudeCheck = wsl bash -c "command -v claude" 2>&1 | Out-String } catch {}
+        if ($claudeCheck -and $claudeCheck.Trim() -match "claude") {
             Log "Claude CLI installed in WSL"
             return $true
         } else {
