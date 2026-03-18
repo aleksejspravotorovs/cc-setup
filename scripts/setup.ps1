@@ -414,40 +414,26 @@ if (Test-Path "package.json") {
 # --- VS Code extensions -------------------------------------------
 
 if (Get-Command code -ErrorAction SilentlyContinue) {
-    Log "VS Code CLI found: $(code --version 2>$null | Select-Object -First 1)"
+    Log "VS Code CLI found"
 
-    $installedExt = code --list-extensions 2>$null
-    $missingExt = @()
+    Write-Host ""
+    Info "Recommended VS Code extensions:"
     foreach ($ext in $VscodeExtensions) {
-        if ($installedExt -notcontains $ext) { $missingExt += $ext }
+        Write-Host "    $ext" -ForegroundColor White
     }
-
-    if ($missingExt.Count -eq 0) {
-        Log "VS Code extensions: all recommended installed"
-    } else {
-        Write-Host ""
-        Info "Missing $($missingExt.Count) recommended VS Code extension(s):"
-        foreach ($ext in $missingExt) {
-            Write-Host "    $ext" -ForegroundColor White
+    Write-Host ""
+    $installExt = Read-Host "    Install recommended VS Code extensions? (y/n)"
+    if ($installExt -eq "y") {
+        foreach ($ext in $VscodeExtensions) {
+            Info "Installing: $ext"
+            # --force updates if already installed, avoids opening VS Code windows
+            code --install-extension $ext --force 2>$null | Out-Null
+            Log "Installed: $ext"
         }
-        Write-Host ""
-        $installExt = Read-Host "    Install missing VS Code extensions? (y/n)"
-        if ($installExt -eq "y") {
-            foreach ($ext in $missingExt) {
-                Info "Installing: $ext"
-                code --install-extension $ext --force 2>$null
-                if ($LASTEXITCODE -eq 0) {
-                    Log "Installed: $ext"
-                } else {
-                    Warn "Failed to install $ext"
-                }
-            }
-            Log "VS Code extensions installed"
-        } else {
-            Info "Skipping. Install later:"
-            foreach ($ext in $missingExt) {
-                Write-Host "    code --install-extension $ext" -ForegroundColor White
-            }
+    } else {
+        Info "Skipping. Install later:"
+        foreach ($ext in $VscodeExtensions) {
+            Write-Host "    code --install-extension $ext" -ForegroundColor White
         }
     }
 } else {

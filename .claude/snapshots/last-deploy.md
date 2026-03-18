@@ -1,21 +1,21 @@
 # Last Deploy Snapshot
-Generated: 2026-03-18T12:15:00Z
+Generated: 2026-03-18T12:30:00Z
 Branch: main
-Commit: fd85189 fix(windows): keep Claude session inside VS Code terminal
+Commit: 695908f fix(windows): make setup idempotent, add npm check, fix skipped steps
 
 ## Changes deployed
- install.ps1       | 37 +++++++++++++++++++++++++++++++------
- scripts/setup.ps1 |  6 ++----
- scripts/start.ps1 | 15 +++++++++++++--
- 3 files changed, 46 insertions(+), 12 deletions(-)
+ scripts/setup.ps1 | 809 ++++++++-------------------------------
+ 2 files changed, 160 insertions(+), 665 deletions(-)
 
 ## Build status
 Pass (no build step — setup/scaffolding repo)
 
 ## Context for next /prime
-- Key files changed: install.ps1, scripts/setup.ps1, scripts/start.ps1
-- New components added: none
+- Key files changed: scripts/setup.ps1
+- New components added: Ensure-Npm function in setup.ps1
 - New routes added: none
-- Breaking changes: Windows setup.ps1 no longer auto-launches (prints instructions instead)
-- Follow-up needed: none
-- Prior commit (same session): 03ef4a0 — macOS fixes (piped install, pp-setup alias, .cleo cleanup)
+- Breaking changes: setup.ps1 no longer has first-run vs repeat-run paths (single idempotent flow)
+- Follow-up needed: test on a fresh Windows machine to verify full flow
+- Prior commits (same session):
+  - fd85189 — Windows start.ps1 VS Code detection
+  - 03ef4a0 — macOS piped install fixes, pp-setup alias, .cleo cleanup

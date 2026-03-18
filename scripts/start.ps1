@@ -1,7 +1,8 @@
 #Requires -Version 5.1
 # +==================================================================+
 # |  Claude Code -- Session Launcher (Windows)                       |
-# |  Equivalent of scripts/start.sh for Windows + Windows Terminal   |
+# |  VS Code: Claude + git watch tip                                  |
+# |  Windows Terminal: Claude (left 60%) + git watch (right 40%)     |
 # +==================================================================+
 
 $ErrorActionPreference = "Stop"
@@ -23,26 +24,31 @@ if (-not (Get-Command claude -ErrorAction SilentlyContinue)) {
 $env:CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "1"
 
 # --- Detect VS Code terminal --------------------------------------
-# When inside VS Code, stay in the integrated terminal instead of
-# opening a new Windows Terminal window.
 
 $InVSCode = $env:TERM_PROGRAM -eq "vscode" -or $null -ne $env:VSCODE_INJECTION
 
 # --- Launch -------------------------------------------------------
 
 if ($InVSCode) {
-    # Inside VS Code: run Claude directly in the integrated terminal
-    Write-Host "[i] Running inside VS Code terminal" -ForegroundColor Cyan
+    # Inside VS Code: run Claude in the integrated terminal
     Write-Host ""
+    Write-Host "+--------------------------------------+" -ForegroundColor Cyan
+    Write-Host "|  Git watch split pane:               |" -ForegroundColor Cyan
+    Write-Host "|  1. Click the split icon (or Ctrl+Shift+5) in the terminal panel" -ForegroundColor Cyan
+    Write-Host "|  2. Run:  .\scripts\git-watch.ps1    |" -ForegroundColor Cyan
+    Write-Host "|  3. Click back on the Claude pane    |" -ForegroundColor Cyan
+    Write-Host "+--------------------------------------+" -ForegroundColor Cyan
+    Write-Host ""
+
     claude --dangerously-skip-permissions
 } elseif (Get-Command wt.exe -ErrorAction SilentlyContinue) {
     # Standalone: Windows Terminal split pane -- Claude (left 60%) + git watch (right 40%)
-    $gitWatch = "while (`$true) { Clear-Host; Get-Date -Format 'HH:mm:ss'; Write-Host '-- git status --'; git status -sb; Write-Host ''; Write-Host '-- changed files --'; git diff --stat; Start-Sleep 3 }"
+    $gitWatch = "powershell -ExecutionPolicy Bypass -NoProfile -File `"$ProjectDir\scripts\git-watch.ps1`""
 
     wt --title "CLAUDE [$SessionName]" -d $ProjectDir `
         cmd /c "set CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 && claude --dangerously-skip-permissions" `
         `; split-pane -V -s 0.4 --title "GIT WATCH" -d $ProjectDir `
-        powershell -NoExit -Command $gitWatch
+        $gitWatch
 } else {
     Write-Host "[i] Tip: Install Windows Terminal for split-pane view" -ForegroundColor Cyan
     Write-Host "    winget install Microsoft.WindowsTerminal" -ForegroundColor Cyan
