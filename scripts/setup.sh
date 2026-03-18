@@ -520,7 +520,7 @@ path = sys.argv[1]
 with open(path) as f:
     s = json.load(f)
 s.setdefault('env', {})['CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS'] = '1'
-s.setdefault('teammateMode', 'auto')
+s.setdefault('teammateMode', 'tmux')
 with open(path, 'w') as f:
     json.dump(s, f, indent=2)
     f.write('\n')
@@ -535,7 +535,7 @@ else
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
-  "teammateMode": "auto"
+  "teammateMode": "tmux"
 }
 JSON
   log "Created $USER_SETTINGS (agent teams + tmux mode)"
@@ -683,7 +683,7 @@ echo "    scripts/start.sh             Launcher (sources .tmux.agent.conf)"
 echo ""
 echo "  Agent Teams (Official Mechanism):"
 echo "    CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1  Enabled in settings + tmux environment"
-echo "    teammateMode: auto                      Split panes in tmux, in-process elsewhere"
+echo "    teammateMode: tmux                      Teammates auto-create split panes"
 echo "    .claude/settings.json                   Project-level settings"
 echo "    ~/.claude/settings.json                 User-level settings"
 echo "    .claude/agents/              ${#EXPECTED_AGENTS[@]} agents: ${EXPECTED_AGENTS[*]}"
@@ -705,7 +705,7 @@ echo ""
 echo "  How agent teams work:"
 echo "    1. start.sh launches Claude inside tmux"
 echo "    2. /build-with-agent-team creates team via official Agent Teams API"
-echo "    3. Teammates run in-process (Shift+Down to cycle) or as tmux split panes"
+echo "    3. Teammates auto-appear as tmux split panes (teammateMode: tmux)"
 echo "    4. Shift+Down cycles between teammates, click pane to interact"
 echo "    5. Lead coordinates via shared task list + messaging"
 echo "    6. Teammates communicate directly via SendMessage"

@@ -43,7 +43,7 @@ tmux select-pane -t "$SESSION:0.1" -T "GIT WATCH"
 
 # Left pane: launch Claude with agent teams enabled
 # Official Agent Teams: teammates auto-appear as tmux split panes
-# Requires: CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 (env) + teammateMode: "auto" (settings)
+# Requires: CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 (env) + teammateMode: "tmux" (settings)
 tmux send-keys -t "$SESSION:0.0" "export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 && claude --dangerously-skip-permissions" C-m
 
 # Right pane: git status + diff watch loop

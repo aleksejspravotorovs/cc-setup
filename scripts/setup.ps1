@@ -225,6 +225,120 @@ function Install-ClaudeCLI {
 }
 
 # ===================================================================
+# WSL + TMUX -- required for split-pane agent teams on Windows
+# ===================================================================
+
+function Ensure-WSL {
+    if (-not (Get-Command wsl -ErrorAction SilentlyContinue)) {
+        Warn "WSL is not installed (required for tmux split-pane agent teams)"
+        Write-Host ""
+        $install = Read-Host "    Install WSL now? (y/n)"
+        if ($install -eq "y") {
+            Info "Installing WSL (this may take a few minutes)..."
+            wsl --install --no-distribution 2>$null
+            # Install Ubuntu as default distro
+            Info "Installing Ubuntu distro..."
+            wsl --install -d Ubuntu 2>$null
+            Write-Host ""
+            Warn "WSL installed. You MUST restart your computer before continuing."
+            Info "After restart, re-run: .\scripts\setup.ps1"
+            Read-Host "Press Enter to exit"
+            exit 0
+        } else {
+            Fail "WSL is required for tmux split-pane agent teams."
+            Info "Install manually: wsl --install"
+            return $false
+        }
+    }
+
+    # Check a distro is actually installed
+    $distros = (wsl --list --quiet 2>$null) | Where-Object { $_ -and $_.Trim() }
+    if (-not $distros) {
+        Warn "WSL is installed but no Linux distribution found"
+        Write-Host ""
+        $install = Read-Host "    Install Ubuntu distro now? (y/n)"
+        if ($install -eq "y") {
+            Info "Installing Ubuntu..."
+            wsl --install -d Ubuntu 2>$null
+            Warn "Distro installed. You may need to restart your terminal."
+            Info "After restart, re-run: .\scripts\setup.ps1"
+        } else {
+            Fail "A WSL distro is required. Install: wsl --install -d Ubuntu"
+            return $false
+        }
+    }
+
+    Log "WSL found"
+    return $true
+}
+
+function Ensure-TmuxInWSL {
+    $tmuxCheck = wsl bash -c "command -v tmux" 2>$null
+    if ($tmuxCheck) {
+        $tmuxVer = (wsl bash -c "tmux -V" 2>$null).Trim()
+        Log "tmux found in WSL: $tmuxVer"
+        return $true
+    }
+
+    Warn "tmux not found in WSL (required for split-pane agent teams)"
+    Write-Host ""
+    $install = Read-Host "    Install tmux in WSL now? (y/n)"
+    if ($install -eq "y") {
+        Info "Installing tmux in WSL..."
+        wsl bash -c "sudo apt-get update -qq && sudo apt-get install -y tmux"
+        $tmuxCheck = wsl bash -c "command -v tmux" 2>$null
+        if ($tmuxCheck) {
+            Log "tmux installed in WSL"
+            return $true
+        } else {
+            Fail "tmux installation failed"
+            return $false
+        }
+    } else {
+        Fail "tmux is required. Install manually: wsl bash -c 'sudo apt install tmux'"
+        return $false
+    }
+}
+
+function Ensure-ClaudeInWSL {
+    $claudeCheck = wsl bash -c "command -v claude" 2>$null
+    if ($claudeCheck) {
+        $claudeVer = (wsl bash -c "claude --version 2>/dev/null | head -1" 2>$null).Trim()
+        Log "Claude CLI found in WSL: $claudeVer"
+        return $true
+    }
+
+    Warn "Claude CLI not found in WSL (required for tmux split-pane mode)"
+    Write-Host ""
+    $install = Read-Host "    Install Claude CLI in WSL now? (y/n)"
+    if ($install -eq "y") {
+        # Ensure Node.js is available in WSL
+        $nodeCheck = wsl bash -c "command -v node" 2>$null
+        if (-not $nodeCheck) {
+            Info "Installing Node.js in WSL..."
+            wsl bash -c "curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash - && sudo apt-get install -y nodejs"
+        }
+
+        Info "Installing Claude CLI in WSL (npm install -g)..."
+        wsl bash -c "sudo npm install -g @anthropic-ai/claude-code"
+
+        $claudeCheck = wsl bash -c "command -v claude" 2>$null
+        if ($claudeCheck) {
+            Log "Claude CLI installed in WSL"
+            return $true
+        } else {
+            Fail "Claude CLI installation failed in WSL"
+            Info "Try manually: wsl bash -c 'npm install -g @anthropic-ai/claude-code'"
+            return $false
+        }
+    } else {
+        Fail "Claude CLI in WSL is required for split-pane mode."
+        Info "Install manually: wsl bash -c 'npm install -g @anthropic-ai/claude-code'"
+        return $false
+    }
+}
+
+# ===================================================================
 # MAIN SETUP (idempotent -- runs the same whether first or repeat)
 # ===================================================================
 
@@ -262,12 +376,14 @@ if (-not $npmOk) {
     Warn "npm missing -- try closing and reopening terminal, then re-run setup."
 }
 
-# Windows Terminal (recommended, not required)
-if (Get-Command wt.exe -ErrorAction SilentlyContinue) {
-    Log "Windows Terminal found"
+# --- WSL + tmux (required for split-pane agent teams) -------------
+
+$wslOk = Ensure-WSL
+if ($wslOk) {
+    $tmuxOk = Ensure-TmuxInWSL
+    $claudeWslOk = Ensure-ClaudeInWSL
 } else {
-    Info "Windows Terminal not found (recommended for split-pane view outside VS Code)"
-    Write-Host "      winget install Microsoft.WindowsTerminal" -ForegroundColor White
+    Warn "WSL not available -- agent teams will not have split-pane support"
 }
 
 Log "Pre-flight passed"
@@ -292,13 +408,13 @@ if (Test-Path $userSettingsFile) {
             $settings = $content | ConvertFrom-Json
             if (-not $settings.env) { $settings | Add-Member -NotePropertyName "env" -NotePropertyValue ([PSCustomObject]@{}) }
             $settings.env | Add-Member -NotePropertyName "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS" -NotePropertyValue "1" -Force
-            $settings | Add-Member -NotePropertyName "teammateMode" -NotePropertyValue "auto" -Force
+            $settings | Add-Member -NotePropertyName "teammateMode" -NotePropertyValue "tmux" -Force
             $settings | ConvertTo-Json -Depth 10 | Set-Content $userSettingsFile -Encoding UTF8
             Log "Updated $userSettingsFile"
         } catch {
             Warn "Could not auto-update user settings. Add manually:"
             Write-Host '    env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "1"' -ForegroundColor White
-            Write-Host '    teammateMode = "auto"' -ForegroundColor White
+            Write-Host '    teammateMode = "tmux"' -ForegroundColor White
         }
     } else {
         Log "User settings: agent teams already configured"
@@ -309,7 +425,7 @@ if (Test-Path $userSettingsFile) {
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
-  "teammateMode": "auto"
+  "teammateMode": "tmux"
 }
 '@
     $settingsJson | Set-Content $userSettingsFile -Encoding UTF8
@@ -331,7 +447,7 @@ if (Test-Path ".claude/settings.json") {
             $settings = $content | ConvertFrom-Json
             if (-not $settings.env) { $settings | Add-Member -NotePropertyName "env" -NotePropertyValue ([PSCustomObject]@{}) }
             $settings.env | Add-Member -NotePropertyName "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS" -NotePropertyValue "1" -Force
-            $settings | Add-Member -NotePropertyName "teammateMode" -NotePropertyValue "auto" -Force
+            $settings | Add-Member -NotePropertyName "teammateMode" -NotePropertyValue "tmux" -Force
             $settings | ConvertTo-Json -Depth 10 | Set-Content ".claude/settings.json" -Encoding UTF8
             Log "Updated .claude\settings.json"
         } catch {
@@ -346,7 +462,7 @@ if (Test-Path ".claude/settings.json") {
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
-  "teammateMode": "auto"
+  "teammateMode": "tmux"
 }
 '@
     $projSettings | Set-Content ".claude/settings.json" -Encoding UTF8
@@ -502,7 +618,7 @@ Write-Host "+======================================+" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "  Agent Teams (Official Mechanism):"
 Write-Host "    CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1  Enabled in settings"
-Write-Host "    teammateMode: auto                      In-process (VS Code) or split panes (tmux)"
+Write-Host "    teammateMode: tmux                      Teammates auto-create split panes via WSL tmux"
 Write-Host "    .claude\settings.json                   Project-level settings"
 Write-Host "    ~\.claude\settings.json                 User-level settings"
 Write-Host "    .claude\agents\              $($ExpectedAgents.Count) agents: $($ExpectedAgents -join ', ')"
