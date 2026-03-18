@@ -509,5 +509,9 @@ Write-Host "    /build-with-agent-team       Spawn agent team"
 Write-Host "    /research <topic>            Spawn research agent"
 Write-Host "    /deploy                      Commit, push, snapshot"
 Write-Host ""
-Write-Host "  To start:  .\scripts\start.ps1   (or just type 'pp')" -ForegroundColor Green
+Write-Host "  To start:" -ForegroundColor Green
+Write-Host "    . `$PROFILE              Reload profile (required once after setup)" -ForegroundColor Green
+Write-Host "    pp                       Launch Claude session" -ForegroundColor Green
+Write-Host ""
+Write-Host "  Or run directly:  .\scripts\start.ps1" -ForegroundColor Green
 Write-Host ""
