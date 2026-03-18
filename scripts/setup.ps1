@@ -32,8 +32,13 @@ if ($currentPolicy -eq "Restricted" -or $currentPolicy -eq "Undefined") {
     Write-Host ""
     $setPolicy = Read-Host "    Set to 'RemoteSigned' for current user? (y/n)"
     if ($setPolicy -eq "y") {
-        Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
-        Log "Execution policy set to RemoteSigned (current user)"
+        try {
+            Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force -ErrorAction Stop
+        } catch {
+            # Non-fatal: policy is set for future sessions but a Process-level
+            # override (e.g. -ExecutionPolicy Bypass) takes precedence right now
+        }
+        Log "Execution policy set to RemoteSigned (takes effect in new terminals)"
     } else {
         Warn "Skipping -- your PowerShell profile and 'pp' commands may not work"
         Info "Fix manually: Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser"
