@@ -1,8 +1,8 @@
 #Requires -Version 5.1
 # +==================================================================+
 # |  Claude Code -- Session Launcher (Windows)                       |
-# |  VS Code: Claude + git watch tip                                  |
-# |  Windows Terminal: Claude (left 60%) + git watch (right 40%)     |
+# |  VS Code: in-process mode (Shift+Down to cycle teammates)       |
+# |  Windows Terminal: standalone with git watch pane                 |
 # +==================================================================+
 
 $ErrorActionPreference = "Stop"
@@ -30,19 +30,22 @@ $InVSCode = $env:TERM_PROGRAM -eq "vscode" -or $null -ne $env:VSCODE_INJECTION
 # --- Launch -------------------------------------------------------
 
 if ($InVSCode) {
-    # Inside VS Code: run Claude in the integrated terminal
+    # VS Code: in-process mode (split panes not supported in VS Code terminal)
+    # Teammates run inside the same terminal -- use Shift+Down to cycle
     Write-Host ""
-    Write-Host "+--------------------------------------+" -ForegroundColor Cyan
-    Write-Host "|  Git watch split pane:               |" -ForegroundColor Cyan
-    Write-Host "|  1. Click the split icon (or Ctrl+Shift+5) in the terminal panel" -ForegroundColor Cyan
-    Write-Host "|  2. Run:  .\scripts\git-watch.ps1    |" -ForegroundColor Cyan
-    Write-Host "|  3. Click back on the Claude pane    |" -ForegroundColor Cyan
-    Write-Host "+--------------------------------------+" -ForegroundColor Cyan
+    Write-Host "+----------------------------------------------+" -ForegroundColor Cyan
+    Write-Host "|  Agent Teams: in-process mode (VS Code)      |" -ForegroundColor Cyan
+    Write-Host "|                                              |" -ForegroundColor Cyan
+    Write-Host "|  Shift+Down    Cycle through teammates       |" -ForegroundColor Cyan
+    Write-Host "|  Enter         View teammate session         |" -ForegroundColor Cyan
+    Write-Host "|  Escape        Interrupt teammate turn       |" -ForegroundColor Cyan
+    Write-Host "|  Ctrl+T        Toggle task list              |" -ForegroundColor Cyan
+    Write-Host "+----------------------------------------------+" -ForegroundColor Cyan
     Write-Host ""
 
     claude --dangerously-skip-permissions
 } elseif (Get-Command wt.exe -ErrorAction SilentlyContinue) {
-    # Standalone: Windows Terminal split pane -- Claude (left 60%) + git watch (right 40%)
+    # Standalone: Windows Terminal -- Claude + git watch side pane
     $gitWatch = "powershell -ExecutionPolicy Bypass -NoProfile -File `"$ProjectDir\scripts\git-watch.ps1`""
 
     wt --title "CLAUDE [$SessionName]" -d $ProjectDir `
@@ -50,7 +53,7 @@ if ($InVSCode) {
         `; split-pane -V -s 0.4 --title "GIT WATCH" -d $ProjectDir `
         $gitWatch
 } else {
-    Write-Host "[i] Tip: Install Windows Terminal for split-pane view" -ForegroundColor Cyan
+    Write-Host "[i] Tip: Install Windows Terminal for git watch split-pane view" -ForegroundColor Cyan
     Write-Host "    winget install Microsoft.WindowsTerminal" -ForegroundColor Cyan
     Write-Host ""
     claude --dangerously-skip-permissions
