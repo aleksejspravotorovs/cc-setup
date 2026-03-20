@@ -297,11 +297,12 @@ function Ensure-WSLLocale {
     $localeCheck = $null
     try { $localeCheck = wsl bash -c "locale 2>/dev/null | head -1" 2>&1 | Out-String } catch {}
     if ($localeCheck -and $localeCheck.Trim() -match "UTF-8") {
-        Log "WSL locale: UTF-8 configured"
+        Log "WSL locale: UTF-8 configured (Cyrillic supported)"
         return $true
     }
 
-    Info "Configuring UTF-8 locale in WSL (for Cyrillic and Unicode support)..."
+    Warn "WSL locale is NOT set to UTF-8 -- Cyrillic characters will break in tmux"
+    Info "Configuring UTF-8 locale in WSL (installs en_US.UTF-8 + ru_RU.UTF-8)..."
     $localeScript = @'
 set -e
 sudo apt-get update -qq
@@ -310,19 +311,35 @@ sudo sed -i 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
 sudo sed -i 's/# ru_RU.UTF-8 UTF-8/ru_RU.UTF-8 UTF-8/' /etc/locale.gen
 sudo locale-gen
 sudo update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+# Ensure locale vars are set on every shell login
 grep -qF 'export LANG=' ~/.bashrc 2>/dev/null || echo 'export LANG=en_US.UTF-8' >> ~/.bashrc
 grep -qF 'export LC_ALL=' ~/.bashrc 2>/dev/null || echo 'export LC_ALL=en_US.UTF-8' >> ~/.bashrc
+# Also set in .profile for non-interactive shells
+grep -qF 'export LANG=' ~/.profile 2>/dev/null || echo 'export LANG=en_US.UTF-8' >> ~/.profile
+grep -qF 'export LC_ALL=' ~/.profile 2>/dev/null || echo 'export LC_ALL=en_US.UTF-8' >> ~/.profile
 '@
-    try { wsl bash -c $localeScript } catch {}
+    try { wsl bash -c $localeScript } catch {
+        Fail "Locale installation failed: $_"
+    }
 
-    # Verify
-    try { $localeCheck = wsl bash -c "LANG=en_US.UTF-8 locale charmap 2>/dev/null" 2>&1 | Out-String } catch {}
-    if ($localeCheck -and $localeCheck.Trim() -eq "UTF-8") {
+    # Verify the locale actually works
+    $charmap = ""
+    try { $charmap = (wsl bash -c "LANG=en_US.UTF-8 locale charmap 2>/dev/null" 2>&1 | Out-String).Trim() } catch {}
+    $testCyrillic = ""
+    try { $testCyrillic = (wsl bash -c "LANG=en_US.UTF-8 printf '\xd0\x9f\xd1\x80\xd0\xb8\xd0\xb2\xd0\xb5\xd1\x82' 2>/dev/null" 2>&1 | Out-String).Trim() } catch {}
+
+    if ($charmap -eq "UTF-8") {
         Log "WSL locale configured: en_US.UTF-8 (Cyrillic supported)"
+        if ($testCyrillic -match "[A-Za-z]" -or $testCyrillic.Length -eq 0) {
+            Warn "Cyrillic render test inconclusive -- verify in tmux after launch"
+        }
         return $true
     } else {
-        Warn "Could not verify locale. Cyrillic may not display correctly."
-        Info "Fix manually: wsl bash -c 'sudo locale-gen en_US.UTF-8 && sudo update-locale LANG=en_US.UTF-8'"
+        Fail "UTF-8 locale verification FAILED -- Cyrillic WILL NOT work"
+        Warn "This MUST be fixed before using Claude with Cyrillic text"
+        Info "Run manually:"
+        Write-Host "    wsl bash -c 'sudo apt-get install -y locales && sudo locale-gen en_US.UTF-8 ru_RU.UTF-8 && sudo update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8'" -ForegroundColor White
+        Info "Then restart WSL: wsl --shutdown"
         return $false
     }
 }

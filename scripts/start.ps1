@@ -53,6 +53,16 @@ if ($tmuxCheck -notmatch "tmux") {
     wsl bash -c "sudo apt-get update -qq && sudo apt-get install -y tmux"
 }
 
+# --- Pre-flight: UTF-8 locale in WSL (Cyrillic support) -----------
+
+$localeCheck = Invoke-WSL "locale 2>/dev/null | head -1"
+if ($localeCheck -notmatch "UTF-8") {
+    Write-Host "[!!] WSL locale is not UTF-8 -- Cyrillic characters will break" -ForegroundColor Yellow
+    Write-Host "[i] Installing UTF-8 locale in WSL..." -ForegroundColor Cyan
+    wsl bash -c "sudo apt-get update -qq && sudo apt-get install -y locales && sudo sed -i 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen && sudo sed -i 's/# ru_RU.UTF-8 UTF-8/ru_RU.UTF-8 UTF-8/' /etc/locale.gen && sudo locale-gen && sudo update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8"
+    Write-Host "[OK] UTF-8 locale installed (Cyrillic supported)" -ForegroundColor Green
+}
+
 # --- Pre-flight: Claude CLI in WSL --------------------------------
 
 $claudeVer = Invoke-WSL "claude --version 2>/dev/null | head -1"
