@@ -577,13 +577,13 @@ mkdir -p .claude/snapshots
 # ─── .gitignore additions ────────────────────────────────────────
 
 if [ -f .gitignore ]; then
-  IGNORE_ENTRIES=(".env" ".env.*" ".cleo/")
+  IGNORE_ENTRIES=(".env" ".env.*")
   for entry in "${IGNORE_ENTRIES[@]}"; do
     if ! grep -qF "$entry" .gitignore 2>/dev/null; then
       echo "$entry" >> .gitignore
     fi
   done
-  log "Updated .gitignore (env files, .cleo)"
+  log "Updated .gitignore (env files)"
 else
   info "No .gitignore found — skipping"
 fi
@@ -665,10 +665,6 @@ register_quick_commands
 
 # ─── Clean up leftover files ─────────────────────────────────────
 
-if [ -d .cleo ]; then
-  rm -rf .cleo
-  log "Removed leftover .cleo directory"
-fi
 
 # ─── Summary ────────────────────────────────────────────────────
 

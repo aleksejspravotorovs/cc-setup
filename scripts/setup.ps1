@@ -523,7 +523,7 @@ if ($missingAgents.Count -gt 0 -or $missingCommands.Count -gt 0) {
 
 if (Test-Path ".gitignore") {
     $ignoreContent = Get-Content ".gitignore" -Raw -ErrorAction SilentlyContinue
-    $entries = @(".env", ".env.*", ".cleo/")
+    $entries = @(".env", ".env.*")
     foreach ($entry in $entries) {
         if ($ignoreContent -notmatch [regex]::Escape($entry)) {
             Add-Content ".gitignore" $entry
@@ -629,10 +629,6 @@ function pp-setup { Set-Location "$ProjectDir"; & powershell -ExecutionPolicy By
 
 # --- Clean up leftover files --------------------------------------
 
-if (Test-Path ".cleo") {
-    Remove-Item -Recurse -Force ".cleo"
-    Log "Removed leftover .cleo directory"
-}
 
 # --- Summary ------------------------------------------------------
 
