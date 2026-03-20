@@ -642,7 +642,7 @@ if (-not (Test-Path $psProfile)) {
     $profileDir = Split-Path -Parent $psProfile
     if (-not (Test-Path $profileDir)) { New-Item -ItemType Directory -Path $profileDir -Force | Out-Null }
     # Create empty profile so we can append to it
-    "" | Set-Content $psProfile
+    [System.IO.File]::WriteAllText($psProfile, "", (New-Object System.Text.UTF8Encoding($true)))
 }
 
 $profileContent = Get-Content $psProfile -Raw -ErrorAction SilentlyContinue
@@ -663,7 +663,7 @@ if ($hasPp -and $hasPpSetup) {
         if ($hasPp -and -not $hasPpSetup) {
             $profileContent = $profileContent -replace '(?m)^# Claude Code -- quick commands.*\r?\n', ''
             $profileContent = $profileContent -replace '(?m)^function pp \{[^}]+\}\r?\n?', ''
-            $profileContent | Set-Content $psProfile -Encoding UTF8
+            [System.IO.File]::WriteAllText($psProfile, $profileContent, (New-Object System.Text.UTF8Encoding($true)))
         }
 
         $cmdBlock = @"
@@ -672,7 +672,11 @@ if ($hasPp -and $hasPpSetup) {
 function pp { Set-Location "$ProjectDir"; & ".\scripts\start.ps1" @args }
 function pp-setup { Set-Location "$ProjectDir"; & powershell -ExecutionPolicy Bypass -File ".\scripts\setup.ps1" @args }
 "@
-        Add-Content $psProfile $cmdBlock
+        $existingContent = if (Test-Path $psProfile) {
+            [System.IO.File]::ReadAllText($psProfile, [System.Text.Encoding]::UTF8)
+        } else { "" }
+        $newContent = $existingContent + $cmdBlock
+        [System.IO.File]::WriteAllText($psProfile, $newContent, (New-Object System.Text.UTF8Encoding($true)))
         Log "Added 'pp' and 'pp-setup' to $psProfile"
         Info "Restart PowerShell or run '. `$PROFILE' to use them"
     } else {

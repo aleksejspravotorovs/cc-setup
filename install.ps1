@@ -19,7 +19,7 @@ foreach ($dir in @("scripts", ".claude\agents", ".claude\commands", ".claude\sna
 }
 
 # --- Scripts ---
-foreach ($file in @("setup.ps1", "start.ps1", "git-watch.ps1", "setup.bat", "start.bat")) {
+foreach ($file in @("setup.ps1", "start.ps1", "git-watch.ps1", "fix-profile.ps1", "setup.bat", "start.bat")) {
     Write-Host "  Downloading scripts\$file..."
     Invoke-WebRequest "$repo/scripts/$file" -OutFile "scripts\$file" -UseBasicParsing
 }

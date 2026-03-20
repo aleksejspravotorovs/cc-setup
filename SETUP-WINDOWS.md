@@ -45,6 +45,7 @@ The installer (`install.ps1`) downloads these files before running setup:
 - `scripts\setup.ps1` — full setup script
 - `scripts\start.ps1` — WSL tmux session launcher
 - `scripts\git-watch.ps1` — git status watch loop
+- `scripts\fix-profile.ps1` — PowerShell profile repair tool (UTF-8 BOM fix for Cyrillic paths)
 - `scripts\setup.bat` — batch wrapper (bypasses execution policy)
 - `scripts\start.bat` — batch wrapper for session launcher
 - `.claude\agents\` — 7 agent definitions (lead, frontend, backend, devops, skeptic, qa, researcher)
@@ -56,13 +57,14 @@ The installer (`install.ps1`) downloads these files before running setup:
 
 Windows uses WSL + tmux to run Claude with split-pane agent teams:
 
-1. `start.ps1` checks that WSL, tmux, and Claude CLI are available in WSL
-2. Auto-installs any missing components (Ubuntu distro, tmux, Node.js, Claude CLI)
-3. Converts your Windows project path to a WSL path (`/mnt/c/...`)
-4. Launches a tmux session inside WSL with Claude running in split-pane mode
-5. Agent teammates auto-appear as tmux panes
+1. `start.ps1` checks that WSL, tmux, UTF-8 locale, and Claude CLI are available in WSL
+2. Auto-installs any missing components (Ubuntu distro, tmux, locale, Node.js, Claude CLI)
+3. Converts your Windows project path to a WSL path (`/mnt/c/...`) — done in PowerShell to avoid encoding issues
+4. If the path contains Cyrillic or other non-ASCII characters, creates an NTFS junction with an ASCII-only path
+5. Launches a tmux session inside WSL with Claude running in split-pane mode
+6. Agent teammates auto-appear as tmux panes
 
-Your project files are accessed via WSL's `/mnt/` mount — no file copying needed.
+Your project files are accessed via WSL's `/mnt/` mount — no file copying needed. Cyrillic paths are handled automatically via NTFS junctions.
 
 ## After setup
 
@@ -132,12 +134,23 @@ wsl bash -c "sudo npm install -g @anthropic-ai/claude-code"
 **"WSL cannot access project path"**
 Your project must be on a Windows drive (C:, D:, etc.). WSL accesses it via `/mnt/c/...`. Network drives and UNC paths are not supported.
 
-**Cyrillic characters display as underscores or garbage**
+**Project path contains Cyrillic characters (e.g. `Рабочий стол`)**
+The setup handles this automatically by creating an NTFS junction with an ASCII path. If you see path-related errors, the simplest long-term fix is to move your project to an ASCII path like `C:\projects\myapp`. Otherwise, re-run `pp-setup` to recreate the junction.
+
+**PowerShell profile corrupted — `pp` shows `?????` instead of path**
+PowerShell 5.1 can corrupt Cyrillic characters in profile scripts. Run the repair tool:
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\fix-profile.ps1
+```
+This rewrites your profile with UTF-8 BOM encoding so Cyrillic paths display correctly.
+
+**Cyrillic characters display as underscores or garbage in tmux**
 The WSL locale needs to be set to UTF-8. Re-run setup (`pp-setup`) or fix manually:
 ```powershell
 wsl bash -c "sudo apt-get install -y locales && sudo locale-gen en_US.UTF-8 ru_RU.UTF-8 && sudo update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8"
+wsl --shutdown
 ```
-Then restart your WSL session. For best results, use Windows Terminal (pre-installed on Windows 11, or `winget install Microsoft.WindowsTerminal` on Windows 10) — it has full Unicode rendering with the Cascadia Code font.
+Then restart your terminal. For best results, use Windows Terminal (pre-installed on Windows 11, or `winget install Microsoft.WindowsTerminal` on Windows 10) — it has full Unicode rendering with the Cascadia Code font.
 
 **tmux not found in WSL**
 Install manually:

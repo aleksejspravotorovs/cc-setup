@@ -90,7 +90,31 @@ Write-Host "[OK] Claude CLI in WSL: $claudeVer" -ForegroundColor Green
 
 # --- Convert Windows path to WSL path -----------------------------
 
-$wslPath = (Invoke-WSL "wslpath -u '$ProjectDir'")
+# Convert Windows path to WSL path in PowerShell (avoids encoding issues with wslpath)
+$wslPath = $ProjectDir -replace '\\', '/'
+if ($wslPath -match '^([A-Za-z]):(.*)') {
+    $drive = $Matches[1].ToLower()
+    $rest = $Matches[2]
+    $wslPath = "/mnt/$drive$rest"
+}
+
+# If path contains non-ASCII (e.g. Cyrillic), create an ASCII-only NTFS junction
+if ($wslPath -match '[^\x00-\x7F]') {
+    $linkName = "claude-project-" + $SessionName
+    $linkTarget = "$env:TEMP\$linkName"
+    # Remove stale junction if it exists
+    if (Test-Path $linkTarget) {
+        cmd /c rmdir "$linkTarget" 2>$null | Out-Null
+    }
+    cmd /c mklink /J "$linkTarget" "$ProjectDir" 2>$null | Out-Null
+    if (Test-Path $linkTarget) {
+        $juncDrive = $linkTarget.Substring(0, 1).ToLower()
+        $wslPath = "/mnt/$juncDrive" + ($linkTarget.Substring(2) -replace '\\', '/')
+        Write-Host "[i] Using ASCII junction for Cyrillic path: $linkTarget" -ForegroundColor Cyan
+    } else {
+        Write-Host "[!!] Could not create junction for Cyrillic path -- WSL may fail with non-ASCII paths" -ForegroundColor Yellow
+    }
+}
 
 # --- Launch Claude in tmux via WSL --------------------------------
 
@@ -123,7 +147,7 @@ export LC_ALL=en_US.UTF-8 && \
 export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 && \
 tmux kill-session -t '$SessionName' 2>/dev/null; \
 tmux -u new-session -s '$SessionName' -c '$wslPath' \
-  'claude --dangerously-skip-permissions; echo; echo \"[Claude exited. Press Enter to close.]\"; read'
+  'claude; echo; echo \"[Claude exited. Press Enter to close.]\"; read'
 "@
 
 wsl bash -c $tmuxCmd
