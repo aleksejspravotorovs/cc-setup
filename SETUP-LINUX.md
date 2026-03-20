@@ -1,8 +1,8 @@
-# Claude Code Setup — macOS
+# Claude Code Setup — Linux
 
 ## Quick start (one command)
 
-Open VS Code, open your project folder, open the terminal (`` Ctrl+` ``), and run:
+Open your terminal in your project folder and run:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/AleksejsPravotorovs/cc-setup/main/install.sh | bash
@@ -10,18 +10,28 @@ curl -fsSL https://raw.githubusercontent.com/AleksejsPravotorovs/cc-setup/main/i
 
 This downloads the scripts and runs the full setup. Follow the prompts.
 
+## Supported package managers
+
+The setup script auto-detects your package manager:
+
+| Distro | Package manager | Node.js | tmux |
+|--------|----------------|---------|------|
+| Ubuntu / Debian | apt | `apt install nodejs npm` | `apt install tmux` |
+| Fedora | dnf | `dnf install nodejs npm` | `dnf install tmux` |
+| CentOS / RHEL | yum | — | `yum install tmux` |
+| Arch / Manjaro | pacman | `pacman -S nodejs npm` | `pacman -S tmux` |
+| Alpine | apk | — | `apk add tmux` |
+
 ## What it installs
 
 The setup script detects what's missing and offers to install each item:
 
-1. **Xcode Command Line Tools** — git, compilers, build tools
-2. **Homebrew** — macOS package manager (handles Apple Silicon automatically)
-3. **Git** — version control + prompts to configure user.name/email
-4. **Node.js + npm** — JavaScript runtime (via Homebrew)
-5. **Claude CLI** — `npm install -g @anthropic-ai/claude-code`
-6. **tmux** — terminal multiplexer for agent team split panes (via Homebrew)
-7. **Project dependencies** — `npm install` (only if `package.json` exists)
-8. **VS Code extensions** — ESLint, Tailwind CSS IntelliSense, Prettier
+1. **Git** — expected to be pre-installed; prompts to configure user.name/email if unset
+2. **Node.js + npm** — JavaScript runtime (via your distro's package manager)
+3. **Claude CLI** — `npm install -g @anthropic-ai/claude-code`
+4. **tmux** — terminal multiplexer for agent team split panes
+5. **Project dependencies** — `npm install` (only if `package.json` exists)
+6. **VS Code extensions** — ESLint, Tailwind CSS IntelliSense, Prettier (if `code` CLI is available)
 
 It also configures:
 - `~/.claude/settings.json` — user-level agent teams settings (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`, `teammateMode: tmux`)
@@ -74,13 +84,20 @@ curl -fsSL https://raw.githubusercontent.com/AleksejsPravotorovs/cc-setup/main/i
 ## Troubleshooting
 
 **"pp: command not found"**
-Run `source ~/.zshrc` (or `source ~/.bashrc`) or open a new terminal. The setup adds your quick commands to your shell profile.
+Run `source ~/.bashrc` (or `source ~/.zshrc`) or open a new terminal. The setup adds quick commands to your shell profile.
 
 **"tmux not found"**
-Run `brew install tmux`, or re-run setup with `pp-setup`.
+Install via your package manager (e.g., `sudo apt install tmux`) or re-run setup with `pp-setup`.
 
-**Homebrew on Apple Silicon**
-The setup handles `/opt/homebrew` automatically and adds it to your `.zshrc`.
+**"node: command not found" after install**
+Some distros install an older version. If you need a newer Node.js, use [NodeSource](https://github.com/nodesource/distributions):
+```bash
+curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+sudo apt-get install -y nodejs
+```
+
+**Git not installed**
+Most Linux distros include git. If missing: `sudo apt install git` (Debian/Ubuntu) or `sudo dnf install git` (Fedora).
 
 **VS Code `code` command not found**
-Open VS Code, then Cmd+Shift+P and type "Shell Command: Install 'code' command in PATH".
+Open VS Code, then Ctrl+Shift+P and type "Shell Command: Install 'code' command in PATH".

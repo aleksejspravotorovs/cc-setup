@@ -21,14 +21,26 @@ Open your project folder in VS Code, open the terminal, paste the command, and f
 ## What you get
 
 **Tools installed** (skips what's already present):
-- Xcode CLT + Homebrew (macOS) or Git for Windows + winget (Windows)
-- Node.js, npm, Claude CLI, tmux (macOS)
-- VS Code extensions: ESLint, Tailwind CSS IntelliSense, Prettier
+
+| Tool | macOS | Linux | Windows |
+|------|-------|-------|---------|
+| Xcode CLT + Homebrew | Yes | — | — |
+| Git | Via Homebrew | Expected pre-installed | Via winget/Chocolatey |
+| Node.js + npm | Via Homebrew | Via apt/dnf/pacman | Via winget/Chocolatey |
+| Claude CLI | npm global | npm global | npm global |
+| tmux | Via Homebrew | Via apt/dnf/yum/pacman/apk | Via WSL (auto-installed) |
+| WSL + Ubuntu | — | — | Auto-installed if missing |
+| Claude CLI in WSL | — | — | Auto-installed for split panes |
+| VS Code extensions | ESLint, Tailwind CSS, Prettier | ESLint, Tailwind CSS, Prettier | ESLint, Tailwind CSS, Prettier |
 
 **Project configured**:
 - `.claude/agents/` — 7 agent definitions (lead, frontend, backend, devops, skeptic, qa, researcher)
 - `.claude/commands/` — 4 slash commands (/prime, /build-with-agent-team, /deploy, /research)
-- Agent teams settings, tmux config, session launcher
+- `.claude/settings.json` — agent teams configuration
+- `.tmux.agent.conf` — tmux config for agent panes (macOS/Linux)
+- `scripts/start.sh` — tmux session launcher (macOS/Linux)
+- `scripts/start.ps1` — WSL tmux session launcher (Windows)
+- `CLAUDE.md`, `AGENTS.md` — project instructions for Claude
 
 **Quick commands added** (persisted in shell profile):
 - `pp` — launch Claude session (tmux + split pane git watch, `--dangerously-skip-permissions`)
@@ -52,4 +64,5 @@ pp-setup
 ## Detailed instructions
 
 - [macOS setup guide](SETUP-MAC.md)
+- [Linux setup guide](SETUP-LINUX.md)
 - [Windows setup guide](SETUP-WINDOWS.md)

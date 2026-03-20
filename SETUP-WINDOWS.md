@@ -2,7 +2,7 @@
 
 ## Quick start (one command)
 
-Open VS Code, open your project folder, open the terminal (`Ctrl+``), and run:
+Open VS Code, open your project folder, open the terminal (`` Ctrl+` ``), and run:
 
 ```powershell
 irm https://raw.githubusercontent.com/AleksejsPravotorovs/cc-setup/main/install.ps1 | iex
@@ -10,22 +10,58 @@ irm https://raw.githubusercontent.com/AleksejsPravotorovs/cc-setup/main/install.
 
 This downloads the scripts and runs the full setup. Follow the prompts.
 
+If PowerShell blocks script execution, use the batch launcher instead:
+
+```cmd
+scripts\setup.bat
+```
+
 ## What it installs
 
 The setup script detects what's missing and offers to install each item:
 
-1. **Git for Windows** — via winget or Chocolatey (required by Claude CLI)
-2. **Node.js LTS** — JavaScript runtime, via winget or Chocolatey
-3. **Claude CLI** — `npm install -g @anthropic-ai/claude-code`
-4. **Project dependencies** — `npm install`
-5. **VS Code extensions** — ESLint, Tailwind CSS IntelliSense, Prettier
-6. **Windows Terminal** — recommended for split-pane view (checked, not auto-installed)
+1. **Execution policy** — sets `RemoteSigned` for current user (so PowerShell scripts can run)
+2. **Git for Windows** — via winget or Chocolatey (includes Git Bash, required by Claude CLI)
+3. **Node.js LTS** — JavaScript runtime, via winget or Chocolatey
+4. **npm** — verified and PATH-resolved after Node.js install
+5. **Claude CLI** — `npm install -g @anthropic-ai/claude-code`
+6. **WSL (Windows Subsystem for Linux)** — required for tmux split-pane agent teams
+7. **Ubuntu distro in WSL** — auto-installed if WSL has no distro
+8. **tmux in WSL** — terminal multiplexer for agent team split panes
+9. **Claude CLI in WSL** — required for split-pane mode (includes Node.js in WSL if needed)
+10. **Project dependencies** — `npm install` (only if `package.json` exists)
+11. **VS Code extensions** — ESLint, Tailwind CSS IntelliSense, Prettier
 
-It also downloads:
+It also configures:
+- `~\.claude\settings.json` — user-level agent teams settings
+- `.claude\settings.json` — project-level agent teams settings
+- `.gitignore` — adds `.env` and `.env.*` entries
+
+## What it downloads
+
+The installer (`install.ps1`) downloads these files before running setup:
+
+- `scripts\setup.ps1` — full setup script
+- `scripts\start.ps1` — WSL tmux session launcher
+- `scripts\git-watch.ps1` — git status watch loop
+- `scripts\setup.bat` — batch wrapper (bypasses execution policy)
+- `scripts\start.bat` — batch wrapper for session launcher
 - `.claude\agents\` — 7 agent definitions (lead, frontend, backend, devops, skeptic, qa, researcher)
 - `.claude\commands\` — 4 slash commands (/prime, /build-with-agent-team, /deploy, /research)
-- `.claude\settings.json` — agent teams configuration
-- `scripts\start.ps1` — Windows Terminal session launcher
+- `.claude\settings.json` — agent teams configuration (only if not present)
+- `CLAUDE.md`, `AGENTS.md` — project instructions for Claude (only if not present)
+
+## How split-pane mode works on Windows
+
+Windows uses WSL + tmux to run Claude with split-pane agent teams:
+
+1. `start.ps1` checks that WSL, tmux, and Claude CLI are available in WSL
+2. Auto-installs any missing components (Ubuntu distro, tmux, Node.js, Claude CLI)
+3. Converts your Windows project path to a WSL path (`/mnt/c/...`)
+4. Launches a tmux session inside WSL with Claude running in split-pane mode
+5. Agent teammates auto-appear as tmux panes
+
+Your project files are accessed via WSL's `/mnt/` mount — no file copying needed.
 
 ## After setup
 
@@ -33,6 +69,18 @@ It also downloads:
 
 ```powershell
 pp
+```
+
+Or run directly:
+
+```powershell
+.\scripts\start.ps1
+```
+
+Or via batch file (no execution policy needed):
+
+```cmd
+scripts\start.bat
 ```
 
 ### Re-run setup
@@ -59,11 +107,32 @@ irm https://raw.githubusercontent.com/AleksejsPravotorovs/cc-setup/main/install.
 
 ## Troubleshooting
 
-**"pp: The term 'pp' is not recognized"** (or whatever alias you chose)
-Restart PowerShell or run `. $PROFILE`. The setup adds your quick commands to your PowerShell profile.
+**"pp: The term 'pp' is not recognized"**
+Restart PowerShell or run `. $PROFILE`. The setup adds quick commands to your PowerShell profile.
 
 **"execution of scripts is disabled"**
-Use `.\scripts\setup.bat` instead — it bypasses execution policy automatically.
+Use `scripts\setup.bat` instead — it bypasses execution policy automatically. Or fix it manually:
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
 
-**Windows Terminal not installed**
-Install it for split-pane support: `winget install Microsoft.WindowsTerminal`
+**WSL install requires a restart**
+After WSL is installed for the first time, you must restart your computer. Then re-run `pp-setup` or `.\scripts\setup.ps1`.
+
+**"WSL has no Linux distribution installed"**
+Run `wsl --install -d Ubuntu` and follow the prompts to create a Unix username/password. Then re-run setup.
+
+**Claude CLI not working in WSL**
+Try reinstalling manually:
+```powershell
+wsl bash -c "sudo npm install -g @anthropic-ai/claude-code"
+```
+
+**"WSL cannot access project path"**
+Your project must be on a Windows drive (C:, D:, etc.). WSL accesses it via `/mnt/c/...`. Network drives and UNC paths are not supported.
+
+**tmux not found in WSL**
+Install manually:
+```powershell
+wsl bash -c "sudo apt-get update && sudo apt-get install -y tmux"
+```
