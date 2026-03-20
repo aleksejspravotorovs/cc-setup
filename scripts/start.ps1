@@ -108,9 +108,11 @@ if ($pathCheck -ne "ok") {
 # Launch tmux -- if claude crashes, keep the pane open to show the error
 $tmuxCmd = @"
 cd '$wslPath' && \
+export LANG=en_US.UTF-8 && \
+export LC_ALL=en_US.UTF-8 && \
 export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 && \
 tmux kill-session -t '$SessionName' 2>/dev/null; \
-tmux new-session -s '$SessionName' -c '$wslPath' \
+tmux -u new-session -s '$SessionName' -c '$wslPath' \
   'claude --dangerously-skip-permissions; echo; echo \"[Claude exited. Press Enter to close.]\"; read'
 "@
 

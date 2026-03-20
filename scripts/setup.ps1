@@ -292,6 +292,41 @@ function Ensure-WSL {
     return $true
 }
 
+function Ensure-WSLLocale {
+    # Check if locale is already UTF-8
+    $localeCheck = $null
+    try { $localeCheck = wsl bash -c "locale 2>/dev/null | head -1" 2>&1 | Out-String } catch {}
+    if ($localeCheck -and $localeCheck.Trim() -match "UTF-8") {
+        Log "WSL locale: UTF-8 configured"
+        return $true
+    }
+
+    Info "Configuring UTF-8 locale in WSL (for Cyrillic and Unicode support)..."
+    $localeScript = @'
+set -e
+sudo apt-get update -qq
+sudo apt-get install -y locales
+sudo sed -i 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
+sudo sed -i 's/# ru_RU.UTF-8 UTF-8/ru_RU.UTF-8 UTF-8/' /etc/locale.gen
+sudo locale-gen
+sudo update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+grep -qF 'export LANG=' ~/.bashrc 2>/dev/null || echo 'export LANG=en_US.UTF-8' >> ~/.bashrc
+grep -qF 'export LC_ALL=' ~/.bashrc 2>/dev/null || echo 'export LC_ALL=en_US.UTF-8' >> ~/.bashrc
+'@
+    try { wsl bash -c $localeScript } catch {}
+
+    # Verify
+    try { $localeCheck = wsl bash -c "LANG=en_US.UTF-8 locale charmap 2>/dev/null" 2>&1 | Out-String } catch {}
+    if ($localeCheck -and $localeCheck.Trim() -eq "UTF-8") {
+        Log "WSL locale configured: en_US.UTF-8 (Cyrillic supported)"
+        return $true
+    } else {
+        Warn "Could not verify locale. Cyrillic may not display correctly."
+        Info "Fix manually: wsl bash -c 'sudo locale-gen en_US.UTF-8 && sudo update-locale LANG=en_US.UTF-8'"
+        return $false
+    }
+}
+
 function Ensure-TmuxInWSL {
     $tmuxCheck = $null
     try { $tmuxCheck = wsl bash -c "command -v tmux" 2>&1 | Out-String } catch {}
@@ -406,6 +441,7 @@ if (-not $npmOk) {
 $wslOk = Ensure-WSL
 if ($wslOk) {
     $tmuxOk = Ensure-TmuxInWSL
+    Ensure-WSLLocale
     $claudeWslOk = Ensure-ClaudeInWSL
 } else {
     Warn "WSL not available -- agent teams will not have split-pane support"

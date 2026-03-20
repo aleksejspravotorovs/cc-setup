@@ -28,9 +28,10 @@ The setup script detects what's missing and offers to install each item:
 6. **WSL (Windows Subsystem for Linux)** — required for tmux split-pane agent teams
 7. **Ubuntu distro in WSL** — auto-installed if WSL has no distro
 8. **tmux in WSL** — terminal multiplexer for agent team split panes
-9. **Claude CLI in WSL** — required for split-pane mode (includes Node.js in WSL if needed)
-10. **Project dependencies** — `npm install` (only if `package.json` exists)
-11. **VS Code extensions** — ESLint, Tailwind CSS IntelliSense, Prettier
+9. **UTF-8 locale in WSL** — generates `en_US.UTF-8` and `ru_RU.UTF-8` locales for Cyrillic and Unicode support
+10. **Claude CLI in WSL** — required for split-pane mode (includes Node.js in WSL if needed)
+11. **Project dependencies** — `npm install` (only if `package.json` exists)
+12. **VS Code extensions** — ESLint, Tailwind CSS IntelliSense, Prettier
 
 It also configures:
 - `~\.claude\settings.json` — user-level agent teams settings
@@ -130,6 +131,13 @@ wsl bash -c "sudo npm install -g @anthropic-ai/claude-code"
 
 **"WSL cannot access project path"**
 Your project must be on a Windows drive (C:, D:, etc.). WSL accesses it via `/mnt/c/...`. Network drives and UNC paths are not supported.
+
+**Cyrillic characters display as underscores or garbage**
+The WSL locale needs to be set to UTF-8. Re-run setup (`pp-setup`) or fix manually:
+```powershell
+wsl bash -c "sudo apt-get install -y locales && sudo locale-gen en_US.UTF-8 ru_RU.UTF-8 && sudo update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8"
+```
+Then restart your WSL session. For best results, use Windows Terminal (pre-installed on Windows 11, or `winget install Microsoft.WindowsTerminal` on Windows 10) — it has full Unicode rendering with the Cascadia Code font.
 
 **tmux not found in WSL**
 Install manually:
