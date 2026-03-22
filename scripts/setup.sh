@@ -158,26 +158,15 @@ ensure_git() {
   fi
   log "Git found: $(git --version)"
 
+  # Only check — don't prompt. Name/email are needed for commits, not for setup.
   local GIT_NAME GIT_EMAIL
   GIT_NAME="$(git config --global user.name 2>/dev/null || true)"
   GIT_EMAIL="$(git config --global user.email 2>/dev/null || true)"
 
-  if [[ -z "$GIT_NAME" ]]; then
-    warn "Git user.name is not configured (required for commits)"
-    ask INPUT_NAME "  Enter your name for git commits: " ""
-    if [[ -n "$INPUT_NAME" ]]; then
-      git config --global user.name "$INPUT_NAME"
-      log "Set git user.name: $INPUT_NAME"
-    fi
-  fi
-
-  if [[ -z "$GIT_EMAIL" ]]; then
-    warn "Git user.email is not configured (required for commits)"
-    ask INPUT_EMAIL "  Enter your email for git commits: " ""
-    if [[ -n "$INPUT_EMAIL" ]]; then
-      git config --global user.email "$INPUT_EMAIL"
-      log "Set git user.email: $INPUT_EMAIL"
-    fi
+  if [[ -z "$GIT_NAME" || -z "$GIT_EMAIL" ]]; then
+    info "Git user.name/email not configured yet (only needed when you make commits)"
+    echo "    git config --global user.name \"Your Name\""
+    echo "    git config --global user.email \"your@email.com\""
   fi
 
   return 0
