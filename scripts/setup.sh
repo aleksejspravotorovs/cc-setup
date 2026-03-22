@@ -115,7 +115,9 @@ ensure_homebrew() {
   fi
 
   info "Installing Homebrew (this may take a minute)..."
-  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  # Redirect stdin from /dev/tty so Homebrew can prompt for sudo password
+  # even when this script is piped (curl ... | bash)
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" </dev/tty
 
   if [[ -f /opt/homebrew/bin/brew ]]; then
     eval "$(/opt/homebrew/bin/brew shellenv)"
@@ -340,8 +342,41 @@ install_tmux() {
 }
 
 # ═══════════════════════════════════════════════════════════════════
-# NODE.JS — detect, install
+# NODE.JS — detect, install (Homebrew → nvm fallback)
 # ═══════════════════════════════════════════════════════════════════
+
+install_node_via_nvm() {
+  export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+
+  if [ ! -s "$NVM_DIR/nvm.sh" ]; then
+    info "Installing nvm (Node Version Manager) — no admin rights required..."
+    local NVM_SCRIPT
+    NVM_SCRIPT=$(mktemp)
+    curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh -o "$NVM_SCRIPT"
+    bash "$NVM_SCRIPT"
+    rm -f "$NVM_SCRIPT"
+  fi
+
+  # Load nvm into current shell
+  [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+  if ! command -v nvm >/dev/null 2>&1; then
+    fail "nvm installation failed"
+    return 1
+  fi
+
+  log "nvm installed"
+  info "Installing latest LTS Node.js via nvm..."
+  nvm install --lts
+
+  if command -v node >/dev/null 2>&1; then
+    log "Node.js installed via nvm: $(node --version)"
+    return 0
+  else
+    fail "Node.js installation via nvm failed"
+    return 1
+  fi
+}
 
 install_node() {
   local OS
@@ -353,9 +388,9 @@ install_node() {
         info "Installing Node.js via Homebrew..."
         brew install node
       else
-        fail "No package manager found. Install Homebrew first:"
-        echo "  /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
-        return 1
+        info "Homebrew not available — using nvm instead"
+        install_node_via_nvm
+        return $?
       fi
       ;;
     Linux)
@@ -464,15 +499,10 @@ ensure_tmux() {
   if [[ "$INSTALL_TMUX" == "y" ]]; then
     install_tmux
   else
-    fail "tmux is required. Install manually and re-run this script."
+    warn "tmux not installed — agent teams will use in-process mode (single terminal)."
+    echo "    To install later: brew install tmux (macOS) / sudo apt install tmux (Linux)"
     echo ""
-    case "$(uname -s)" in
-      Darwin) echo "    brew install tmux" ;;
-      Linux)  echo "    sudo apt install tmux  # or your distro's package manager" ;;
-      *)      echo "    https://github.com/tmux/tmux/wiki/Installing" ;;
-    esac
-    echo ""
-    exit 1
+    return 1
   fi
 }
 
@@ -490,13 +520,14 @@ echo ""
 
 if [[ "$(uname -s)" == "Darwin" ]]; then
   ensure_xcode_clt || { fail "Xcode Command Line Tools are required. Cannot continue."; exit 1; }
-  ensure_homebrew  || { fail "Homebrew is required on macOS. Cannot continue."; exit 1; }
+  ensure_homebrew  || warn "Homebrew not available — will use alternatives where possible."
 fi
 ensure_git || { warn "Git configuration incomplete — some features may not work."; }
 
 ensure_node || { warn "Continuing without Node.js — some features will not be available."; }
 ensure_claude || { fail "Claude CLI is required. Cannot continue."; exit 1; }
-ensure_tmux
+TMUX_AVAILABLE=true
+ensure_tmux || TMUX_AVAILABLE=false
 
 log "Pre-flight passed"
 echo ""
@@ -513,6 +544,9 @@ if [ -f "$USER_SETTINGS" ]; then
   grep -q '"teammateMode"' "$USER_SETTINGS" 2>/dev/null || NEEDS_UPDATE=true
 
   if [ "$NEEDS_UPDATE" = true ]; then
+    local TMODE="tmux"
+    [ "$TMUX_AVAILABLE" = false ] && TMODE="in-process"
+
     info "Updating user settings for agent teams..."
     python3 -c "
 import json, sys
@@ -520,25 +554,28 @@ path = sys.argv[1]
 with open(path) as f:
     s = json.load(f)
 s.setdefault('env', {})['CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS'] = '1'
-s.setdefault('teammateMode', 'tmux')
+s['teammateMode'] = sys.argv[2]
 with open(path, 'w') as f:
     json.dump(s, f, indent=2)
     f.write('\n')
-" "$USER_SETTINGS" && log "Updated $USER_SETTINGS (agent teams + tmux mode)" \
-                   || warn "Could not auto-update $USER_SETTINGS — add manually"
+" "$USER_SETTINGS" "$TMODE" && log "Updated $USER_SETTINGS (agent teams + $TMODE mode)" \
+                            || warn "Could not auto-update $USER_SETTINGS — add manually"
   else
     log "User settings: agent teams + teammateMode already configured"
   fi
 else
-  cat > "$USER_SETTINGS" <<'JSON'
+  local TMODE="tmux"
+  [ "$TMUX_AVAILABLE" = false ] && TMODE="in-process"
+
+  cat > "$USER_SETTINGS" <<JSON
 {
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
-  "teammateMode": "tmux"
+  "teammateMode": "$TMODE"
 }
 JSON
-  log "Created $USER_SETTINGS (agent teams + tmux mode)"
+  log "Created $USER_SETTINGS (agent teams + $TMODE mode)"
 fi
 
 # ─── Verify config files ─────────────────────────────────────────
