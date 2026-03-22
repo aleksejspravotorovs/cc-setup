@@ -488,10 +488,15 @@ ensure_tmux() {
   if [[ "$INSTALL_TMUX" == "y" ]]; then
     install_tmux
   else
-    warn "tmux not installed — agent teams will use in-process mode (single terminal)."
-    echo "    To install later: brew install tmux (macOS) / sudo apt install tmux (Linux)"
+    fail "tmux is required for agent team orchestration. Install manually and re-run this script."
     echo ""
-    return 1
+    case "$(uname -s)" in
+      Darwin) echo "    brew install tmux" ;;
+      Linux)  echo "    sudo apt install tmux  # or your distro's package manager" ;;
+      *)      echo "    https://github.com/tmux/tmux/wiki/Installing" ;;
+    esac
+    echo ""
+    exit 1
   fi
 }
 
@@ -515,8 +520,7 @@ ensure_git || { warn "Git configuration incomplete — some features may not wor
 
 ensure_node || { warn "Continuing without Node.js — some features will not be available."; }
 ensure_claude || { fail "Claude CLI is required. Cannot continue."; exit 1; }
-TMUX_AVAILABLE=true
-ensure_tmux || TMUX_AVAILABLE=false
+ensure_tmux
 
 log "Pre-flight passed"
 echo ""
@@ -533,9 +537,6 @@ if [ -f "$USER_SETTINGS" ]; then
   grep -q '"teammateMode"' "$USER_SETTINGS" 2>/dev/null || NEEDS_UPDATE=true
 
   if [ "$NEEDS_UPDATE" = true ]; then
-    local TMODE="tmux"
-    [ "$TMUX_AVAILABLE" = false ] && TMODE="in-process"
-
     info "Updating user settings for agent teams..."
     python3 -c "
 import json, sys
@@ -543,28 +544,25 @@ path = sys.argv[1]
 with open(path) as f:
     s = json.load(f)
 s.setdefault('env', {})['CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS'] = '1'
-s['teammateMode'] = sys.argv[2]
+s['teammateMode'] = 'tmux'
 with open(path, 'w') as f:
     json.dump(s, f, indent=2)
     f.write('\n')
-" "$USER_SETTINGS" "$TMODE" && log "Updated $USER_SETTINGS (agent teams + $TMODE mode)" \
-                            || warn "Could not auto-update $USER_SETTINGS — add manually"
+" "$USER_SETTINGS" && log "Updated $USER_SETTINGS (agent teams + tmux mode)" \
+                   || warn "Could not auto-update $USER_SETTINGS — add manually"
   else
     log "User settings: agent teams + teammateMode already configured"
   fi
 else
-  local TMODE="tmux"
-  [ "$TMUX_AVAILABLE" = false ] && TMODE="in-process"
-
-  cat > "$USER_SETTINGS" <<JSON
+  cat > "$USER_SETTINGS" <<'JSON'
 {
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
-  "teammateMode": "$TMODE"
+  "teammateMode": "tmux"
 }
 JSON
-  log "Created $USER_SETTINGS (agent teams + $TMODE mode)"
+  log "Created $USER_SETTINGS (agent teams + tmux mode)"
 fi
 
 # ─── Verify config files ─────────────────────────────────────────

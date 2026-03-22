@@ -7,7 +7,7 @@ SESSION="$(basename "$PROJECT_DIR" | tr '[:upper:].' '[:lower:]-')"
 TMUX_CONF="$PROJECT_DIR/.tmux.agent.conf"
 
 command -v tmux  >/dev/null 2>&1 || { echo "tmux not found — run ./scripts/setup.sh to install"; exit 1; }
-command -v claude >/dev/null 2>&1 || { echo "claude not found"; exit 1; }
+command -v claude >/dev/null 2>&1 || { echo "claude not found — run ./scripts/setup.sh to install"; exit 1; }
 
 # Kill previous session if exists
 tmux kill-session -t "$SESSION" 2>/dev/null || true
