@@ -1,22 +1,20 @@
 # Last Deploy Snapshot
-Generated: 2026-03-22T12:30:00Z
+Generated: 2026-03-29T14:30:00Z
 Branch: main
-Commit: 897c68c fix(setup): require tmux, always use tmux teammateMode
+Commit: 69a0c52 fix(setup): pp command now launches Claude in current folder, not cc-setup
 
 ## Changes deployed (this session)
-- 2ffbb90 fix(mac): allow install without admin rights — nvm fallback, optional tmux
-- 2e05ac7 fix(setup): defer git identity config to first commit, not install
-- 897c68c fix(setup): require tmux, always use tmux teammateMode
+- 69a0c52 fix(setup): pp command now launches Claude in current folder, not cc-setup
 
 ## Build status
 Pass (no build step — setup/scaffolding repo)
 
 ## Context for next /prime
-- Key files changed: scripts/setup.sh, scripts/start.sh
-- New components added: `install_node_via_nvm()` function in setup.sh
+- Key files changed: scripts/start.sh, scripts/start.ps1, scripts/setup.sh, scripts/setup.ps1, .claude/settings.json
+- New components added: none
 - New routes added: none
 - Breaking changes:
-  - Homebrew failure no longer exits setup — continues with nvm for Node.js
-  - Git identity (user.name/email) no longer prompted during install — deferred to first commit
-  - tmux remains required; teammateMode always "tmux"
-- Follow-up needed: user daniilgrigorjev should re-run install to verify non-admin flow reaches pp command
+  - `pp` no longer cd's to cc-setup — it launches Claude in the current directory ($PWD)
+  - Users with existing `pp` alias must re-run setup (or `pp-setup`) to get the updated alias
+  - start.sh/start.ps1 now accept an optional directory argument (defaults to $PWD)
+- Follow-up needed: users who already installed should re-run setup to update their shell alias
