@@ -648,28 +648,32 @@ if (-not (Test-Path $psProfile)) {
 $profileContent = Get-Content $psProfile -Raw -ErrorAction SilentlyContinue
 $hasPp      = $profileContent -match 'function pp '
 $hasPpSetup = $profileContent -match 'function pp-setup '
+# Detect old hardcoded version (Set-Location to project dir) vs new version (calls start.ps1 with current dir)
+$ppIsStale  = $hasPp -and ($profileContent -match 'function pp \{[^}]*Set-Location')
 
-if ($hasPp -and $hasPpSetup) {
+if ($hasPp -and $hasPpSetup -and -not $ppIsStale) {
     Log "Quick commands already registered (pp, pp-setup)"
 } else {
     Write-Host ""
     Info "Quick commands:"
-    Write-Host "    pp         -- launch Claude session"
+    Write-Host "    pp         -- launch Claude session in current folder"
     Write-Host "    pp-setup   -- re-run setup for this project"
     Write-Host ""
     $addCmds = Read-Host "    Add 'pp' and 'pp-setup' to PowerShell profile? (y/n)"
     if ($addCmds -eq "y") {
-        # Remove old pp function if present but pp-setup is missing
-        if ($hasPp -and -not $hasPpSetup) {
+        # Remove old pp/pp-setup functions before adding new ones
+        if ($hasPp -or $hasPpSetup) {
             $profileContent = $profileContent -replace '(?m)^# Claude Code -- quick commands.*\r?\n', ''
             $profileContent = $profileContent -replace '(?m)^function pp \{[^}]+\}\r?\n?', ''
+            $profileContent = $profileContent -replace '(?m)^function pp-setup \{[^}]+\}\r?\n?', ''
             [System.IO.File]::WriteAllText($psProfile, $profileContent, (New-Object System.Text.UTF8Encoding($true)))
+            Info "Cleaned up old quick commands"
         }
 
         $cmdBlock = @"
 
 # Claude Code -- quick commands (added by setup.ps1)
-function pp { Set-Location "$ProjectDir"; & ".\scripts\start.ps1" @args }
+function pp { & "$ProjectDir\scripts\start.ps1" (Get-Location).Path }
 function pp-setup { Set-Location "$ProjectDir"; & powershell -ExecutionPolicy Bypass -File ".\scripts\setup.ps1" @args }
 "@
         $existingContent = if (Test-Path $psProfile) {
@@ -705,7 +709,7 @@ Write-Host "  Commands:"
 Write-Host "    .claude\commands\            $($ExpectedCommands.Count) commands: $($ExpectedCommands -join ', ')"
 Write-Host ""
 Write-Host "  Quick commands (added to PowerShell profile):"
-Write-Host "    pp                           Launch Claude session"
+Write-Host "    pp                           Launch Claude session in current folder"
 Write-Host "    pp-setup                     Re-run setup for this project"
 Write-Host ""
 Write-Host "  Inside Claude:"

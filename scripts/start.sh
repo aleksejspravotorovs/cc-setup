@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Derive session name from project directory (portable across projects)
-PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-SESSION="$(basename "$PROJECT_DIR" | tr '[:upper:].' '[:lower:]-')"
-TMUX_CONF="$PROJECT_DIR/.tmux.agent.conf"
+# SCRIPT_DIR = where start.sh lives (cc-setup repo) — used to find tmux config
+# WORK_DIR   = where the user wants to work — defaults to $PWD (e.g. folder open in VS Code)
+SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+WORK_DIR="${1:-$(pwd)}"
+SESSION="$(basename "$WORK_DIR" | tr '[:upper:].' '[:lower:]-')"
+TMUX_CONF="$SCRIPT_DIR/.tmux.agent.conf"
 
 command -v tmux  >/dev/null 2>&1 || { echo "tmux not found — run ./scripts/setup.sh to install"; exit 1; }
 command -v claude >/dev/null 2>&1 || { echo "claude not found — run ./scripts/setup.sh to install"; exit 1; }
@@ -23,7 +25,7 @@ fi
 unset VSCODE_SHELL_INTEGRATION VSCODE_INJECTION 2>/dev/null || true
 
 # Create session in project dir
-tmux "${TMUX_FLAGS[@]}" new-session -d -s "$SESSION" -c "$PROJECT_DIR"
+tmux "${TMUX_FLAGS[@]}" new-session -d -s "$SESSION" -c "$WORK_DIR"
 
 # Set agent teams env var for the session (inherited by teammate panes)
 tmux set-environment -t "$SESSION" CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS 1
@@ -33,7 +35,7 @@ tmux set-environment -t "$SESSION" -u VSCODE_SHELL_INTEGRATION 2>/dev/null || tr
 tmux set-environment -t "$SESSION" -u VSCODE_INJECTION 2>/dev/null || true
 
 # Layout: left 60% (Claude), right 40% (git watch)
-tmux split-window -h -p 40 -t "$SESSION:0.0" -c "$PROJECT_DIR"
+tmux split-window -h -p 40 -t "$SESSION:0.0" -c "$WORK_DIR"
 
 # Pane labels
 tmux set-option -t "$SESSION" pane-border-status top

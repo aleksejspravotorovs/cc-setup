@@ -7,10 +7,17 @@
 
 $ErrorActionPreference = "Stop"
 
-$ProjectDir = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
-Set-Location $ProjectDir
+# ScriptDir = where start.ps1 lives (cc-setup repo)
+# WorkDir   = where the user wants to work — defaults to current directory (e.g. folder open in VS Code)
+$ScriptDir = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
+if ($args.Count -gt 0 -and (Test-Path $args[0] -PathType Container)) {
+    $WorkDir = (Resolve-Path $args[0]).Path
+} else {
+    $WorkDir = (Get-Location).Path
+}
+Set-Location $WorkDir
 
-$SessionName = (Split-Path -Leaf $ProjectDir).ToLower() -replace '[.\s]', '-'
+$SessionName = (Split-Path -Leaf $WorkDir).ToLower() -replace '[.\s]', '-'
 
 # --- Helper: safe WSL command execution ---------------------------
 
@@ -91,7 +98,7 @@ Write-Host "[OK] Claude CLI in WSL: $claudeVer" -ForegroundColor Green
 # --- Convert Windows path to WSL path -----------------------------
 
 # Convert Windows path to WSL path in PowerShell (avoids encoding issues with wslpath)
-$wslPath = $ProjectDir -replace '\\', '/'
+$wslPath = $WorkDir -replace '\\', '/'
 if ($wslPath -match '^([A-Za-z]):(.*)') {
     $drive = $Matches[1].ToLower()
     $rest = $Matches[2]
@@ -106,7 +113,7 @@ if ($wslPath -match '[^\x00-\x7F]') {
     if (Test-Path $linkTarget) {
         cmd /c rmdir "$linkTarget" 2>$null | Out-Null
     }
-    cmd /c mklink /J "$linkTarget" "$ProjectDir" 2>$null | Out-Null
+    cmd /c mklink /J "$linkTarget" "$WorkDir" 2>$null | Out-Null
     if (Test-Path $linkTarget) {
         $juncDrive = $linkTarget.Substring(0, 1).ToLower()
         $wslPath = "/mnt/$juncDrive" + ($linkTarget.Substring(2) -replace '\\', '/')

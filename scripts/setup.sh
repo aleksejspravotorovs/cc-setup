@@ -50,6 +50,7 @@ fail() { echo -e "${RED}[✗]${NC} $1"; }
 
 EXPECTED_AGENTS=("lead" "frontend" "backend" "devops" "skeptic" "qa" "researcher")
 EXPECTED_COMMANDS=("prime" "build-with-agent-team" "deploy" "research")
+EXPECTED_SKILLS=("premium-design" "scroll-animations" "section-transitions" "design-system-extraction")
 VSCODE_EXTENSIONS=("dbaeumer.vscode-eslint" "bradlc.vscode-tailwindcss" "esbenp.prettier-vscode")
 
 # ═══════════════════════════════════════════════════════════════════
@@ -578,6 +579,10 @@ for cmd in "${EXPECTED_COMMANDS[@]}"; do
   [ -f ".claude/commands/${cmd}.md" ] || { warn "Missing: .claude/commands/${cmd}.md"; MISSING=$((MISSING+1)); }
 done
 
+for skill in "${EXPECTED_SKILLS[@]}"; do
+  [ -f ".claude/skills/${skill}.md" ] || { warn "Missing: .claude/skills/${skill}.md"; MISSING=$((MISSING+1)); }
+done
+
 [ -f .claude/settings.json ] || { warn "Missing: .claude/settings.json"; MISSING=$((MISSING+1)); }
 [ -f .tmux.agent.conf ]      || { warn "Missing: .tmux.agent.conf"; MISSING=$((MISSING+1)); }
 [ -f scripts/start.sh ]      || { warn "Missing: scripts/start.sh"; MISSING=$((MISSING+1)); }
@@ -592,11 +597,12 @@ if [ "$MISSING" -gt 0 ]; then
 else
   AGENT_COUNT=${#EXPECTED_AGENTS[@]}
   CMD_COUNT=${#EXPECTED_COMMANDS[@]}
-  log "Config files verified: $AGENT_COUNT agents, $CMD_COUNT commands, settings, tmux config"
+  SKILL_COUNT=${#EXPECTED_SKILLS[@]}
+  log "Config files verified: $AGENT_COUNT agents, $CMD_COUNT commands, $SKILL_COUNT skills, settings, tmux config"
 fi
 
 chmod +x scripts/start.sh 2>/dev/null || true
-mkdir -p .claude/snapshots
+mkdir -p .claude/snapshots .claude/skills
 
 # ─── .gitignore additions ────────────────────────────────────────
 
@@ -634,10 +640,10 @@ register_quick_commands() {
 
   local NEEDS_PP=false NEEDS_PP_SETUP=false NEEDS_CLEANUP=false
 
-  # Check for correct pp alias (must cd to this project dir)
+  # Check for correct pp alias (must call this project's start.sh)
   if grep -qF "alias pp=" "$SHELL_RC" 2>/dev/null; then
-    # Exists — check if it points to the right directory
-    if ! grep -qF "alias pp='cd \"${PROJECT_DIR}\"" "$SHELL_RC" 2>/dev/null; then
+    # Exists — check if it calls this project's start.sh (not an old hardcoded cd version)
+    if ! grep -qF "alias pp='\"${PROJECT_DIR}/scripts/start.sh\"'" "$SHELL_RC" 2>/dev/null; then
       NEEDS_PP=true
       NEEDS_CLEANUP=true
     fi
@@ -677,7 +683,7 @@ register_quick_commands() {
   cat >> "$SHELL_RC" <<CMDS
 
 # Claude Code — quick commands (added by setup.sh)
-alias pp='cd "${PROJECT_DIR}" && ./scripts/start.sh'
+alias pp='"${PROJECT_DIR}/scripts/start.sh"'
 alias pp-setup='cd "${PROJECT_DIR}" && bash scripts/setup.sh'
 CMDS
 
@@ -712,8 +718,11 @@ echo "  Commands:"
 echo "    .claude/commands/            ${#EXPECTED_COMMANDS[@]} commands: ${EXPECTED_COMMANDS[*]}"
 echo "    .claude/snapshots/           Deploy snapshot dir"
 echo ""
+echo "  Skills (auto-inject during frontend work):"
+echo "    .claude/skills/              ${#EXPECTED_SKILLS[@]} skills: ${EXPECTED_SKILLS[*]}"
+echo ""
 echo "  Quick commands (added to shell profile):"
-echo "    pp                           Launch Claude session (tmux + git watch)"
+echo "    pp                           Launch Claude session in current folder (tmux + git watch)"
 echo "    pp-setup                     Re-run setup for this project"
 echo ""
 echo "  Inside Claude:"
