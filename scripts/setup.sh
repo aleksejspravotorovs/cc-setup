@@ -579,9 +579,13 @@ for cmd in "${EXPECTED_COMMANDS[@]}"; do
   [ -f ".claude/commands/${cmd}.md" ] || { warn "Missing: .claude/commands/${cmd}.md"; MISSING=$((MISSING+1)); }
 done
 
-for skill in "${EXPECTED_SKILLS[@]}"; do
-  [ -f ".claude/skills/${skill}.md" ] || { warn "Missing: .claude/skills/${skill}.md"; MISSING=$((MISSING+1)); }
-done
+if [ -d ".claude/skills" ]; then
+  for skill in "${EXPECTED_SKILLS[@]}"; do
+    [ -f ".claude/skills/${skill}.md" ] || { warn "Missing: .claude/skills/${skill}.md"; MISSING=$((MISSING+1)); }
+  done
+else
+  info "Frontend skills not installed (optional — re-run install.sh and answer 'y' to the frontend prompt)"
+fi
 
 [ -f .claude/settings.json ] || { warn "Missing: .claude/settings.json"; MISSING=$((MISSING+1)); }
 [ -f .tmux.agent.conf ]      || { warn "Missing: .tmux.agent.conf"; MISSING=$((MISSING+1)); }
@@ -638,11 +642,10 @@ register_quick_commands() {
     SHELL_RC="$HOME/.bashrc"
   fi
 
-  local NEEDS_PP=false NEEDS_PP_SETUP=false NEEDS_CLEANUP=false
+  local NEEDS_PP=false NEEDS_PP_SETUP=false NEEDS_PP_UPDATE=false NEEDS_CLEANUP=false
 
   # Check for correct pp alias (must call this project's start.sh)
   if grep -qF "alias pp=" "$SHELL_RC" 2>/dev/null; then
-    # Exists — check if it calls this project's start.sh (not an old hardcoded cd version)
     if ! grep -qF "alias pp='\"${PROJECT_DIR}/scripts/start.sh\"'" "$SHELL_RC" 2>/dev/null; then
       NEEDS_PP=true
       NEEDS_CLEANUP=true
@@ -651,13 +654,22 @@ register_quick_commands() {
     NEEDS_PP=true
   fi
 
-  # Check for pp-setup alias
   if ! grep -qF "alias pp-setup=" "$SHELL_RC" 2>/dev/null; then
     NEEDS_PP_SETUP=true
   fi
 
-  if [ "$NEEDS_PP" = false ] && [ "$NEEDS_PP_SETUP" = false ]; then
-    log "Quick commands already registered (pp, pp-setup)"
+  # Check for pp-update alias (new)
+  if grep -qF "alias pp-update=" "$SHELL_RC" 2>/dev/null; then
+    if ! grep -qF "alias pp-update='bash \"${PROJECT_DIR}/scripts/update.sh\"'" "$SHELL_RC" 2>/dev/null; then
+      NEEDS_PP_UPDATE=true
+      NEEDS_CLEANUP=true
+    fi
+  else
+    NEEDS_PP_UPDATE=true
+  fi
+
+  if [ "$NEEDS_PP" = false ] && [ "$NEEDS_PP_SETUP" = false ] && [ "$NEEDS_PP_UPDATE" = false ]; then
+    log "Quick commands already registered (pp, pp-setup, pp-update)"
     return 0
   fi
 
@@ -665,19 +677,18 @@ register_quick_commands() {
   info "Quick commands:"
   echo "    pp         — launch Claude session (tmux + git watch split pane)"
   echo "    pp-setup   — re-run setup for this project"
+  echo "    pp-update  — pull latest cc-setup + refresh hooks/plugins"
   echo ""
-  ask ADD_PP "  Add 'pp' and 'pp-setup' to $SHELL_RC? (y/n) " "y"
+  ask ADD_PP "  Add 'pp', 'pp-setup', 'pp-update' to $SHELL_RC? (y/n) " "y"
   if [[ "$ADD_PP" != "y" ]]; then
     info "Skipping quick commands. Add manually later."
     return 0
   fi
 
-  # Remove old/stale pp aliases before adding new ones
   if [ "$NEEDS_CLEANUP" = true ]; then
-    # Remove old alias lines and their comment headers
-    sed -i.bak '/# PayPong.*Claude session/d;/# Claude Code.*quick commands/d;/alias pp=/d' "$SHELL_RC"
+    sed -i.bak '/# PayPong.*Claude session/d;/# Claude Code.*quick commands/d;/alias pp=/d;/alias pp-update=/d' "$SHELL_RC"
     rm -f "${SHELL_RC}.bak"
-    info "Cleaned up old pp alias"
+    info "Cleaned up old pp aliases"
   fi
 
   cat >> "$SHELL_RC" <<CMDS
@@ -685,9 +696,10 @@ register_quick_commands() {
 # Claude Code — quick commands (added by setup.sh)
 alias pp='"${PROJECT_DIR}/scripts/start.sh"'
 alias pp-setup='cd "${PROJECT_DIR}" && bash scripts/setup.sh'
+alias pp-update='bash "${PROJECT_DIR}/scripts/update.sh"'
 CMDS
 
-  log "Added 'pp' and 'pp-setup' to $SHELL_RC"
+  log "Added 'pp', 'pp-setup', 'pp-update' to $SHELL_RC"
   info "Run 'source $SHELL_RC' or open a new terminal to use them"
 }
 
@@ -724,6 +736,7 @@ echo ""
 echo "  Quick commands (added to shell profile):"
 echo "    pp                           Launch Claude session in current folder (tmux + git watch)"
 echo "    pp-setup                     Re-run setup for this project"
+echo "    pp-update                    Pull latest cc-setup + refresh hooks/plugins"
 echo ""
 echo "  Inside Claude:"
 echo "    /prime                       Prime the session with codebase context"

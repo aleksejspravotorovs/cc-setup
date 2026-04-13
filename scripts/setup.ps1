@@ -646,26 +646,27 @@ if (-not (Test-Path $psProfile)) {
 }
 
 $profileContent = Get-Content $psProfile -Raw -ErrorAction SilentlyContinue
-$hasPp      = $profileContent -match 'function pp '
-$hasPpSetup = $profileContent -match 'function pp-setup '
-# Detect old hardcoded version (Set-Location to project dir) vs new version (calls start.ps1 with current dir)
-$ppIsStale  = $hasPp -and ($profileContent -match 'function pp \{[^}]*Set-Location')
+$hasPp       = $profileContent -match 'function pp '
+$hasPpSetup  = $profileContent -match 'function pp-setup '
+$hasPpUpdate = $profileContent -match 'function pp-update '
+$ppIsStale   = $hasPp -and ($profileContent -match 'function pp \{[^}]*Set-Location')
 
-if ($hasPp -and $hasPpSetup -and -not $ppIsStale) {
-    Log "Quick commands already registered (pp, pp-setup)"
+if ($hasPp -and $hasPpSetup -and $hasPpUpdate -and -not $ppIsStale) {
+    Log "Quick commands already registered (pp, pp-setup, pp-update)"
 } else {
     Write-Host ""
     Info "Quick commands:"
     Write-Host "    pp         -- launch Claude session in current folder"
     Write-Host "    pp-setup   -- re-run setup for this project"
+    Write-Host "    pp-update  -- pull latest cc-setup + refresh hooks/plugins"
     Write-Host ""
-    $addCmds = Read-Host "    Add 'pp' and 'pp-setup' to PowerShell profile? (y/n)"
+    $addCmds = Read-Host "    Add 'pp', 'pp-setup', 'pp-update' to PowerShell profile? (y/n)"
     if ($addCmds -eq "y") {
-        # Remove old pp/pp-setup functions before adding new ones
-        if ($hasPp -or $hasPpSetup) {
+        if ($hasPp -or $hasPpSetup -or $hasPpUpdate) {
             $profileContent = $profileContent -replace '(?m)^# Claude Code -- quick commands.*\r?\n', ''
             $profileContent = $profileContent -replace '(?m)^function pp \{[^}]+\}\r?\n?', ''
             $profileContent = $profileContent -replace '(?m)^function pp-setup \{[^}]+\}\r?\n?', ''
+            $profileContent = $profileContent -replace '(?m)^function pp-update \{[^}]+\}\r?\n?', ''
             [System.IO.File]::WriteAllText($psProfile, $profileContent, (New-Object System.Text.UTF8Encoding($true)))
             Info "Cleaned up old quick commands"
         }
@@ -675,13 +676,14 @@ if ($hasPp -and $hasPpSetup -and -not $ppIsStale) {
 # Claude Code -- quick commands (added by setup.ps1)
 function pp { & "$ProjectDir\scripts\start.ps1" (Get-Location).Path }
 function pp-setup { Set-Location "$ProjectDir"; & powershell -ExecutionPolicy Bypass -File ".\scripts\setup.ps1" @args }
+function pp-update { & powershell -ExecutionPolicy Bypass -File "$ProjectDir\scripts\update.ps1" @args }
 "@
         $existingContent = if (Test-Path $psProfile) {
             [System.IO.File]::ReadAllText($psProfile, [System.Text.Encoding]::UTF8)
         } else { "" }
         $newContent = $existingContent + $cmdBlock
         [System.IO.File]::WriteAllText($psProfile, $newContent, (New-Object System.Text.UTF8Encoding($true)))
-        Log "Added 'pp' and 'pp-setup' to $psProfile"
+        Log "Added 'pp', 'pp-setup', 'pp-update' to $psProfile"
         Info "Restart PowerShell or run '. `$PROFILE' to use them"
     } else {
         Info "Skipping quick commands. Add manually later."
@@ -711,6 +713,7 @@ Write-Host ""
 Write-Host "  Quick commands (added to PowerShell profile):"
 Write-Host "    pp                           Launch Claude session in current folder"
 Write-Host "    pp-setup                     Re-run setup for this project"
+Write-Host "    pp-update                    Pull latest cc-setup + refresh hooks/plugins"
 Write-Host ""
 Write-Host "  Inside Claude:"
 Write-Host "    /prime                       Prime the session with codebase context"
