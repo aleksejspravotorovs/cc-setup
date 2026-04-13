@@ -1,0 +1,76 @@
+{
+  "schema": "cc-setup.plugins/v1",
+  "description": "Snapshot of user-scope Claude Code plugins and marketplaces. Consumed by scripts/install-plugins.sh.",
+  "marketplaces": [
+    {
+      "name": "claude-plugins-official",
+      "source": "github",
+      "repo": "anthropics/claude-plugins-official",
+      "required": true
+    },
+    {
+      "name": "superpowers-marketplace",
+      "source": "github",
+      "repo": "obra/superpowers-marketplace",
+      "required": false,
+      "note": "Aggregator. claude-plugins-official already ships superpowers — this marketplace is optional."
+    },
+    {
+      "name": "thedotmack",
+      "source": "github",
+      "repo": "thedotmack/claude-mem",
+      "required": true
+    },
+    {
+      "name": "vercel-vercel-plugin",
+      "source": "github",
+      "repo": "vercel/vercel-plugin",
+      "required": true,
+      "note": "Original install was from a local directory (~/.cache/plugins/github.com-vercel-vercel-plugin). Reference the github repo here for portability."
+    }
+  ],
+  "plugins": [
+    {
+      "id": "superpowers@claude-plugins-official",
+      "marketplace": "claude-plugins-official",
+      "name": "superpowers",
+      "version": "5.0.7",
+      "description": "Core Anthropic-curated skillset: brainstorming, TDD, verification, plan execution, subagent dispatch, debugging, worktrees, code review."
+    },
+    {
+      "id": "vercel-plugin@vercel-vercel-plugin",
+      "marketplace": "vercel-vercel-plugin",
+      "name": "vercel-plugin",
+      "version": "0.24.0",
+      "description": "Vercel platform toolkit: deploy, env vars, preview URLs, runtime logs, Next.js / AI SDK / Turborepo guidance, MCP Vercel tools."
+    },
+    {
+      "id": "context7@claude-plugins-official",
+      "marketplace": "claude-plugins-official",
+      "name": "context7",
+      "version": "latest",
+      "description": "Live documentation lookup for libraries/frameworks (React, Next.js, Prisma, etc.). MCP-powered."
+    },
+    {
+      "id": "code-simplifier@claude-plugins-official",
+      "marketplace": "claude-plugins-official",
+      "name": "code-simplifier",
+      "version": "1.0.0",
+      "description": "Simplify/refine recently modified code while preserving functionality."
+    },
+    {
+      "id": "code-review@claude-plugins-official",
+      "marketplace": "claude-plugins-official",
+      "name": "code-review",
+      "version": "latest",
+      "description": "Automated PR code review."
+    },
+    {
+      "id": "claude-mem@thedotmack",
+      "marketplace": "thedotmack",
+      "name": "claude-mem",
+      "version": "11.0.1",
+      "description": "Persistent cross-session memory database with search/timeline/observations."
+    }
+  ]
+}

@@ -42,6 +42,11 @@ Open your project folder in VS Code, open the terminal, paste the command, and f
 - `scripts/start.ps1` — WSL tmux session launcher (Windows)
 - `CLAUDE.md`, `AGENTS.md` — project instructions for Claude
 
+**User-scope Claude Code setup** (optional, macOS/Linux):
+- `claude-user-config/` — 6 plugins + 5 GSD hook scripts + sanitized global settings.json
+- `scripts/install-plugins.sh` — one-shot installer for plugins/hooks/settings (`bash scripts/install-plugins.sh`)
+- See [claude-user-config/README.md](claude-user-config/README.md) for the plugin list and what gets wired up.
+
 **Quick commands added** (persisted in shell profile):
 - `pp` — launch Claude session (tmux + split pane git watch, `--dangerously-skip-permissions`)
 - `pp-setup` — re-run setup for this project
