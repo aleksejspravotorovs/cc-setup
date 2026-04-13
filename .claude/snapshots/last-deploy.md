@@ -1,20 +1,39 @@
 # Last Deploy Snapshot
-Generated: 2026-03-29T14:30:00Z
+Generated: 2026-04-13T17:08:00Z
 Branch: main
-Commit: 69a0c52 fix(setup): pp command now launches Claude in current folder, not cc-setup
+Commit: 3a09e6b feat(setup): add pp-update command for syncing from git
 
 ## Changes deployed (this session)
-- 69a0c52 fix(setup): pp command now launches Claude in current folder, not cc-setup
+- 3a09e6b feat(setup): add pp-update command for syncing from git
+- e57a7f8 feat: add frontend design set (skills + research + libraries)
 
 ## Build status
 Pass (no build step — setup/scaffolding repo)
 
 ## Context for next /prime
-- Key files changed: scripts/start.sh, scripts/start.ps1, scripts/setup.sh, scripts/setup.ps1, .claude/settings.json
-- New components added: none
-- New routes added: none
-- Breaking changes:
-  - `pp` no longer cd's to cc-setup — it launches Claude in the current directory ($PWD)
-  - Users with existing `pp` alias must re-run setup (or `pp-setup`) to get the updated alias
-  - start.sh/start.ps1 now accept an optional directory argument (defaults to $PWD)
-- Follow-up needed: users who already installed should re-run setup to update their shell alias
+
+### What shipped
+- **Frontend design set committed**: `.claude/skills/` (4 skills), `.claude/research/` (6 docs), `libraries/scroll-animations/` (5 files: animations.ts, easings.ts, scroll-animations.ts, tailwind-theme-reference.js, README.md). Previously untracked locally.
+- **`pp-update` command**: new `scripts/update.sh` + `scripts/update.ps1`. Auto-detects mode:
+  - cc-setup clone → `git pull` + re-runs `install-plugins.sh` (refreshes `~/.claude` hooks/settings/plugins).
+  - bootstrapped project → re-downloads `.claude/agents/`, `.claude/commands/`, `scripts/` from GitHub (and frontend set if dir exists).
+- **install.sh / install.ps1**: add opt-in prompt "Install frontend design set? (y/n)" — downloads skills + research + libraries when y. Also downloads `update.sh` so bootstrapped projects ship with `pp-update` available.
+- **setup.sh / setup.ps1**: registers `pp-update` alias alongside `pp` and `pp-setup`. Skills check is now soft (info, not warn) when `.claude/skills` dir absent — frontend set is opt-in.
+
+### Key files changed
+- `install.sh`, `install.ps1` — frontend prompt + downloads `update.sh`
+- `scripts/setup.sh`, `scripts/setup.ps1` — `pp-update` alias registration; conditional skills check
+- `scripts/update.sh`, `scripts/update.ps1` — new
+- `.claude/skills/*.md`, `.claude/research/*.md`, `libraries/scroll-animations/**` — new (committed)
+
+### New routes / components
+- None (setup repo)
+
+### Breaking changes
+- Existing users must re-run `pp-setup` (or `bash scripts/setup.sh`) to register the new `pp-update` alias.
+- `install.sh` and `install.ps1` now ask one extra interactive question (frontend prompt) — defaults to `n` when piped non-interactively (no tty).
+
+### Follow-up needed
+- `package-lock.json` and `.DS_Store` remain untracked (intentionally — empty/noise). Consider `.gitignore` entries if desired.
+- Optional: mirror `update.sh` mention into `claude-user-config/README.md` and main `README.md`.
+- Existing bootstrapped projects (downloaded before this push) won't have `scripts/update.sh` — first run will need either a clone or a re-bootstrap. Document in upgrade notes.
