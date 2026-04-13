@@ -19,7 +19,7 @@ foreach ($dir in @("scripts", ".claude\agents", ".claude\commands", ".claude\sna
 }
 
 # --- Scripts ---
-foreach ($file in @("setup.ps1", "start.ps1", "git-watch.ps1", "fix-profile.ps1", "setup.bat", "start.bat")) {
+foreach ($file in @("setup.ps1", "start.ps1", "update.ps1", "git-watch.ps1", "fix-profile.ps1", "setup.bat", "start.bat")) {
     Write-Host "  Downloading scripts\$file..."
     Invoke-WebRequest "$repo/scripts/$file" -OutFile "scripts\$file" -UseBasicParsing
 }
@@ -43,6 +43,37 @@ foreach ($file in @(".claude\settings.json", "CLAUDE.md", "AGENTS.md")) {
         Invoke-WebRequest "$repo/$file" -OutFile $file -UseBasicParsing
     } else {
         Write-Host "  Skipping $file (already exists)"
+    }
+}
+
+# --- Frontend design add-on (opt-in) ---
+Write-Host ""
+Write-Host "Optional: frontend design add-on"
+Write-Host "  * 4 skills        premium-design, scroll-animations, section-transitions, design-system-extraction"
+Write-Host "  * 6 research docs bold-design, scroll-driven UI, video smoothing, section transitions, ..."
+Write-Host "  * scroll-animations TS library (animations.ts, easings.ts, ...)"
+Write-Host ""
+$installFrontend = Read-Host "Install frontend design set? (y/n)"
+Write-Host ""
+
+if ($installFrontend -eq "y") {
+    foreach ($dir in @(".claude\skills", ".claude\research", "libraries\scroll-animations")) {
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    }
+
+    foreach ($skill in @("premium-design", "scroll-animations", "section-transitions", "design-system-extraction")) {
+        Write-Host "  Downloading .claude\skills\$skill.md..."
+        Invoke-WebRequest "$repo/.claude/skills/$skill.md" -OutFile ".claude\skills\$skill.md" -UseBasicParsing
+    }
+
+    foreach ($doc in @("bold-design-principles", "premium-design-system-template", "scroll-driven-ui-roadmap-template", "scroll-scrubbed-video", "section-transitions-spec", "video-smoothing")) {
+        Write-Host "  Downloading .claude\research\$doc.md..."
+        Invoke-WebRequest "$repo/.claude/research/$doc.md" -OutFile ".claude\research\$doc.md" -UseBasicParsing
+    }
+
+    foreach ($lib in @("README.md", "animations.ts", "easings.ts", "scroll-animations.ts", "tailwind-theme-reference.js")) {
+        Write-Host "  Downloading libraries\scroll-animations\$lib..."
+        Invoke-WebRequest "$repo/libraries/scroll-animations/$lib" -OutFile "libraries\scroll-animations\$lib" -UseBasicParsing
     }
 }
 
