@@ -705,6 +705,24 @@ CMDS
 
 register_quick_commands
 
+# ─── Self-edit safeguard protection (prevents teammate-pane crashes) ─────────
+# Auto-applies the PROMPT_FREE_PROTOCOL + canonical AGENTS.md + .vscode settings.
+# Idempotent — safe to re-run. Background: Claude Code v2.1.78+ has a hardcoded
+# safeguard on .claude/** that crashes narrow tmux teammate panes with a raw
+# JSX dump. Keeping this in setup.sh means every new project born from cc-setup
+# is protected by default.
+if [[ -x "$PROJECT_DIR/scripts/apply-self-edit-safeguard-fix.sh" ]]; then
+  info "Applying self-edit-safeguard protection..."
+  if bash "$PROJECT_DIR/scripts/apply-self-edit-safeguard-fix.sh" "$PROJECT_DIR" > /tmp/cc-setup-safeguard.log 2>&1; then
+    log "Self-edit safeguard protection applied (see /tmp/cc-setup-safeguard.log for details)"
+  else
+    warn "Safeguard patch script returned non-zero — review /tmp/cc-setup-safeguard.log"
+  fi
+else
+  warn "scripts/apply-self-edit-safeguard-fix.sh not found — teammate panes may crash on .claude/ writes"
+  warn "Re-pull cc-setup to get the fix: pp-update"
+fi
+
 # ─── Clean up leftover files ─────────────────────────────────────
 
 
@@ -738,7 +756,13 @@ echo "    pp                           Launch Claude session in current folder (
 echo "    pp-setup                     Re-run setup for this project"
 echo "    pp-update                    Pull latest cc-setup + refresh hooks/plugins"
 echo ""
-echo "  Inside Claude:"
+echo "  Protection (auto-applied):
+    .claude/PROMPT_FREE_PROTOCOL.md       Canonical bug-avoidance rules (8)
+    AGENTS.md                             Auto-loads via CLAUDE.md
+    bugfix/                               Post-mortems (if referenced)
+    scripts/apply-self-edit-safeguard-fix.sh   Re-run anytime
+
+  Inside Claude:"
 echo "    /prime                       Prime the session with codebase context"
 echo "    /build-with-agent-team       Spawn agent team (split panes auto-created)"
 echo "    /research <topic>            Spawn research agent for best practices"
