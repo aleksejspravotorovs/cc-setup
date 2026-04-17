@@ -78,6 +78,12 @@ if ($Mode -eq "cc-setup") {
     }
 
     Write-Host ""
+    if (Test-Path "$ProjectDir\scripts\apply-self-edit-safeguard-fix.sh") {
+        Info "Applying self-edit-safeguard protocol to cc-setup itself..."
+        & $bashPath "$ProjectDir\scripts\apply-self-edit-safeguard-fix.sh" "$ProjectDir"
+    }
+
+    Write-Host ""
     Log "pp-update complete."
     Write-Host ""
     Info "To refresh a bootstrapped project's .claude\ files, cd into it and run pp-update there."
@@ -89,12 +95,12 @@ if ($Mode -eq "cc-setup") {
 Info "Refreshing project files from GitHub..."
 Write-Host ""
 
-foreach ($dir in @("scripts", ".claude\agents", ".claude\commands", ".claude\snapshots")) {
+foreach ($dir in @("scripts", ".claude\agents", ".claude\commands", ".claude\snapshots", ".vscode")) {
     New-Item -ItemType Directory -Path (Join-Path $ProjectDir $dir) -Force | Out-Null
 }
 
-# Scripts
-foreach ($file in @("setup.ps1", "start.ps1", "update.ps1", "git-watch.ps1", "fix-profile.ps1")) {
+# Scripts (includes apply-self-edit-safeguard-fix.sh — protocol patcher, runs under Git Bash)
+foreach ($file in @("setup.ps1", "start.ps1", "update.ps1", "git-watch.ps1", "fix-profile.ps1", "apply-self-edit-safeguard-fix.sh")) {
     Write-Host "  scripts\$file"
     Invoke-WebRequest "$RepoUrl/scripts/$file" -OutFile (Join-Path $ProjectDir "scripts\$file") -UseBasicParsing
 }
@@ -110,6 +116,26 @@ foreach ($cmd in @("prime", "build-with-agent-team", "deploy", "research")) {
     Write-Host "  .claude\commands\$cmd.md"
     Invoke-WebRequest "$RepoUrl/.claude/commands/$cmd.md" -OutFile (Join-Path $ProjectDir ".claude\commands\$cmd.md") -UseBasicParsing
 }
+
+# Root-level canonical docs (AGENTS.md = PROMPT_FREE_PROTOCOL canonical; CLAUDE.md loads it)
+foreach ($rootDoc in @("AGENTS.md", "CLAUDE.md")) {
+    Write-Host "  $rootDoc"
+    try {
+        Invoke-WebRequest "$RepoUrl/$rootDoc" -OutFile (Join-Path $ProjectDir $rootDoc) -UseBasicParsing
+    } catch { Warn "    (missing remotely -- skipped)" }
+}
+
+# Protocol mirror inside .claude\ (agent-facing)
+Write-Host "  .claude\PROMPT_FREE_PROTOCOL.md"
+try {
+    Invoke-WebRequest "$RepoUrl/.claude/PROMPT_FREE_PROTOCOL.md" -OutFile (Join-Path $ProjectDir ".claude\PROMPT_FREE_PROTOCOL.md") -UseBasicParsing
+} catch { Warn "    (missing remotely -- skipped)" }
+
+# VS Code workspace auto-approve
+Write-Host "  .vscode\settings.json"
+try {
+    Invoke-WebRequest "$RepoUrl/.vscode/settings.json" -OutFile (Join-Path $ProjectDir ".vscode\settings.json") -UseBasicParsing
+} catch { Warn "    (missing remotely -- skipped)" }
 
 # Frontend set -- only refresh if already present
 if (Test-Path (Join-Path $ProjectDir ".claude\skills")) {
@@ -144,3 +170,28 @@ if (Test-Path (Join-Path $ProjectDir "libraries\scroll-animations")) {
 
 Write-Host ""
 Log "Project files refreshed."
+Write-Host ""
+
+# Auto-apply the self-edit-safeguard protocol so the refreshed project is safe to run immediately.
+# Idempotent — no-op when already patched. Requires Git Bash on Windows.
+if (Test-Path "$ProjectDir\scripts\apply-self-edit-safeguard-fix.sh") {
+    $bashPath = $null
+    if (Get-Command git -ErrorAction SilentlyContinue) {
+        $gitDir = Split-Path -Parent (Split-Path -Parent (Get-Command git).Source)
+        $candidate = Join-Path $gitDir "bin\bash.exe"
+        if (Test-Path $candidate) { $bashPath = $candidate }
+    }
+    if (-not $bashPath) {
+        foreach ($p in @("$env:ProgramFiles\Git\bin\bash.exe", "${env:ProgramFiles(x86)}\Git\bin\bash.exe", "$env:LOCALAPPDATA\Programs\Git\bin\bash.exe")) {
+            if (Test-Path $p) { $bashPath = $p; break }
+        }
+    }
+    if ($bashPath) {
+        Info "Applying self-edit-safeguard protocol (idempotent)..."
+        & $bashPath "$ProjectDir\scripts\apply-self-edit-safeguard-fix.sh" "$ProjectDir"
+        Log "Protocol applied / verified"
+    } else {
+        Warn "Git Bash not found -- skipping safeguard apply (install Git for Windows to enable)"
+    }
+    Write-Host ""
+}
