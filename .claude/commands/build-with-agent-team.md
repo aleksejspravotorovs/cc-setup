@@ -1,5 +1,12 @@
 # Agent Team Orchestration (Official Agent Teams)
 
+## MANDATORY — read before spawning teammates
+`.claude/PROMPT_FREE_PROTOCOL.md`. Every `Agent(...)` prompt you build MUST include the BLANKET PERMISSION block from the protocol. Hard rules:
+- Teammates MUST NOT use `Write`/`Edit` on paths under `.claude/**` or `.git/**` — use `Bash` heredoc
+- Teammate artifacts live at repo root (`findings.md`, `research/`, `strategies/`, `qa/`, `web/`) — NOT `.claude/`
+- Teammates NEVER ask the user questions — pre-authorized blanket permission
+
+
 Agent teams coordinate multiple Claude Code instances working together. One session acts as the
 team lead, coordinating work, assigning tasks, and synthesizing results. Teammates work
 independently, each in its own context window, and communicate directly with each other.
@@ -32,7 +39,7 @@ Agent definitions live in `.claude/agents/*.md`:
 - **frontend** — UI + client logic
 - **backend** — API + database + server logic
 - **devops** — Infrastructure + deployment
-- **skeptic** — Security + UX devil's advocate (review-only, no code). **Must update `.claude/findings.md`** after every review.
+- **skeptic** — Security + UX devil's advocate (review-only, no code). **Must update `findings.md` (repo root)** after every review.
 - **qa** — Structured pass/fail verification + regression checks
 - **researcher** — Technical research and best practices analysis (read-only)
 
@@ -115,7 +122,7 @@ When skeptic or QA report findings (HIGH or MEDIUM severity):
 1. Ask each teammate to shut down — they can approve or reject with an explanation
 2. Wait for all shutdown confirmations
 3. **Only the lead** runs `TeamDelete` to clean up team resources (teammates must not run cleanup)
-4. Update `.claude/findings.md` with resolved items
+4. Update `findings.md` (repo root) with resolved items
 
 ## Plan approval mode
 
@@ -125,7 +132,7 @@ For complex or risky tasks, require teammates to plan before implementing:
 - Give the lead approval criteria: "only approve plans that include test coverage"
 
 ## Findings automation
-- **Skeptic** must update `.claude/findings.md` after every review:
+- **Skeptic** must update `findings.md` (repo root) after every review:
   - Add new findings under the appropriate section and severity heading
   - Mark resolved items with ~~strikethrough~~ and commit context
 - **Lead** marks findings resolved when fixes are verified and merged

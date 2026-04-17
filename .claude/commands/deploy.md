@@ -54,7 +54,7 @@ git push origin <current-branch>
 
 ## 6) Session snapshot (for next /prime)
 
-Create/overwrite `.claude/snapshots/last-deploy.md`:
+Create/overwrite `.claude/snapshots/last-deploy.md` **via Bash heredoc** (the path is protected — see `.claude/PROMPT_FREE_PROTOCOL.md`, Rule 1):
 
 ```markdown
 # Last Deploy Snapshot
