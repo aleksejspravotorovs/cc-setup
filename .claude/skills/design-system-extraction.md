@@ -67,8 +67,8 @@ Extract and document:
 
 ## Output Format
 
-Save the extracted system to `.claude/research/design-system-[project].md` using the template structure in `.claude/research/premium-design-system-template.md`.
+Save the extracted system to `research/design/design-system-[project].md` using the template structure in `research/design/premium-design-system-template.md`.
 
 ## Reference
 
-See `.claude/research/premium-design-system-template.md` for the full fillable template with all CSS patterns and code examples.
+See `research/design/premium-design-system-template.md` for the full fillable template with all CSS patterns and code examples.

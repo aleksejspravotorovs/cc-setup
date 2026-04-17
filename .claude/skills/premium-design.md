@@ -77,4 +77,4 @@ Bold colors amplify bad spacing. On colored sections:
 
 ## Reference
 
-See `.claude/research/bold-design-principles.md` for full theory, trust-excitement matrix, and per-page progression examples.
+See `research/design/bold-design-principles.md` for full theory, trust-excitement matrix, and per-page progression examples.

@@ -122,11 +122,13 @@ if (Test-Path (Join-Path $ProjectDir ".claude\skills")) {
     }
 }
 
-if (Test-Path (Join-Path $ProjectDir ".claude\research")) {
+# Design research docs live at research\design\ (outside .claude\ — protected-path safeguard avoidance)
+if ((Test-Path (Join-Path $ProjectDir "research\design")) -or (Test-Path (Join-Path $ProjectDir ".claude\research"))) {
+    New-Item -ItemType Directory -Force -Path (Join-Path $ProjectDir "research\design") | Out-Null
     foreach ($doc in @("bold-design-principles", "premium-design-system-template", "scroll-driven-ui-roadmap-template", "scroll-scrubbed-video", "section-transitions-spec", "video-smoothing")) {
-        Write-Host "  .claude\research\$doc.md"
+        Write-Host "  research\design\$doc.md"
         try {
-            Invoke-WebRequest "$RepoUrl/.claude/research/$doc.md" -OutFile (Join-Path $ProjectDir ".claude\research\$doc.md") -UseBasicParsing
+            Invoke-WebRequest "$RepoUrl/research/design/$doc.md" -OutFile (Join-Path $ProjectDir "research\design\$doc.md") -UseBasicParsing
         } catch { Warn "    (missing remotely -- skipped)" }
     }
 }

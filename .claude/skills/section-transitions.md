@@ -100,4 +100,4 @@ const WaveDivider = ({ fillColor = '#101828', variant = 'wave' }) => {
 
 ## Reference
 
-See `.claude/research/section-transitions-spec.md` for 6 full techniques with multi-layer parallax waves, animated gradients, CSS grid overlaps, responsive patterns, and Tailwind config additions.
+See `research/design/section-transitions-spec.md` for 6 full techniques with multi-layer parallax waves, animated gradients, CSS grid overlaps, responsive patterns, and Tailwind config additions.

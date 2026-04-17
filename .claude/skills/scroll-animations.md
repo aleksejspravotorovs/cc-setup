@@ -86,10 +86,10 @@ Default stagger: `83ms` between sequential items. Use `staggerStyle(index)` or `
 
 ## Video Scroll Scrubbing
 
-For scroll-driven video, use `video.currentTime = progress * duration` in a `scroll()` callback. Video MUST be re-encoded with `-g 1` (all keyframes) via ffmpeg. See `.claude/research/scroll-scrubbed-video.md` for the full encoding guide.
+For scroll-driven video, use `video.currentTime = progress * duration` in a `scroll()` callback. Video MUST be re-encoded with `-g 1` (all keyframes) via ffmpeg. See `research/design/scroll-scrubbed-video.md` for the full encoding guide.
 
 ## Reference
 
 - `libraries/scroll-animations/` — Drop-in hook files
-- `.claude/research/video-smoothing.md` — Frame stepping fixes
-- `.claude/research/scroll-scrubbed-video.md` — Full video encoding research
+- `research/design/video-smoothing.md` — Frame stepping fixes
+- `research/design/scroll-scrubbed-video.md` — Full video encoding research

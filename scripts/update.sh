@@ -111,10 +111,12 @@ if [ -d "$PROJECT_DIR/.claude/skills" ]; then
   done
 fi
 
-if [ -d "$PROJECT_DIR/.claude/research" ]; then
+# Design research docs live at research/design/ (outside .claude/ — protected-path safeguard avoidance)
+if [ -d "$PROJECT_DIR/research/design" ] || [ -d "$PROJECT_DIR/.claude/research" ]; then
+  mkdir -p "$PROJECT_DIR/research/design"
   for doc in bold-design-principles premium-design-system-template scroll-driven-ui-roadmap-template scroll-scrubbed-video section-transitions-spec video-smoothing; do
-    echo "  .claude/research/$doc.md"
-    curl -fsSL "$REPO_URL/.claude/research/$doc.md" -o "$PROJECT_DIR/.claude/research/$doc.md" 2>/dev/null || warn "    (missing remotely — skipped)"
+    echo "  research/design/$doc.md"
+    curl -fsSL "$REPO_URL/research/design/$doc.md" -o "$PROJECT_DIR/research/design/$doc.md" 2>/dev/null || warn "    (missing remotely — skipped)"
   done
 fi
 

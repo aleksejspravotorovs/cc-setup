@@ -7,5 +7,31 @@
   },
   "skipDangerousModePermissionPrompt": true,
   "teammateMode": "tmux",
-  "permissionExplainerEnabled": false
+  "permissionExplainerEnabled": false,
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/aleksejpravotorov/.claude/hooks/auto-approve.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/aleksejpravotorov/.claude/hooks/auto-approve-permission-request.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
 }

@@ -383,6 +383,27 @@ if [ -f .claude/commands/deploy.md ] && ! grep -q 'Bash heredoc' .claude/command
 fi
 
 # =============================================================================
+# 8b. Patch skill files — redirect `.claude/research/` → `research/design/`
+# =============================================================================
+# Skills are loaded into agent contexts on invocation. If a skill instructs
+# "Save to .claude/research/X" the agent will call Write(.claude/research/X)
+# and trigger the hardcoded safeguard → crash. Redirect to the safe path.
+if [ -d .claude/skills ]; then
+  shopt -s nullglob
+  for f in .claude/skills/*.md; do
+    if grep -q '\.claude/research/' "$f"; then
+      sed -i.bak 's|\.claude/research/|research/design/|g' "$f"
+      rm -f "${f}.bak"
+      echo "  patched: $f (.claude/research/ → research/design/)"
+    fi
+  done
+  shopt -u nullglob
+  # Ensure target dir exists so skill write instructions work
+  [ -d research ] || mkdir -p research/design
+  [ -d research/design ] || mkdir -p research/design
+fi
+
+# =============================================================================
 # 9. Canonical AGENTS.md at repo root
 # =============================================================================
 if [ -f AGENTS.md ] && grep -q '^# PROMPT-FREE OPERATION PROTOCOL' AGENTS.md; then
@@ -454,7 +475,128 @@ echo "  wrote: AGENTS.md (canonical)"
 fi
 
 # =============================================================================
-# 10. .vscode/settings.json — workspace auto-approve
+# 10. Project .claude/settings.json — safety flags + auto-approve hooks (jq)
+# =============================================================================
+# Prevents lead tmux session crashes by:
+#   (a) pre-authorising every tool call via PreToolUse auto-approve hook
+#   (b) catching anything that slipped past PreToolUse via PermissionRequest hook
+#   (c) suppressing the long-form permission explainer UI (narrow-pane crash trigger)
+# The hardcoded `.claude/**` safeguard is NOT covered by these — Rule 1 (no Write
+# on protected paths) is the only defense there. These cover the other 99%.
+HOOK_PRE_PATH="$HOME/.claude/hooks/auto-approve.sh"
+HOOK_PR_PATH="$HOME/.claude/hooks/auto-approve-permission-request.sh"
+
+if command -v jq >/dev/null 2>&1 && [ -f .claude/settings.json ]; then
+  TMP=$(mktemp)
+  jq --arg hook_pre "$HOOK_PRE_PATH" --arg hook_pr "$HOOK_PR_PATH" '
+    .permissions.defaultMode = "bypassPermissions"
+    | .skipDangerousModePermissionPrompt = true
+    | .teammateMode = "tmux"
+    | .permissionExplainerEnabled = false
+    | .env = ((.env // {}) | .CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "1")
+    | .hooks = (.hooks // {})
+    | .hooks.PreToolUse = (
+        ((.hooks.PreToolUse // [])
+          | map(select(((.hooks // []) | map(.command // "") | any(test("auto-approve\\.sh"))) | not)))
+        + [{matcher: ".*", hooks: [{type: "command", command: $hook_pre, timeout: 5}]}])
+    | .hooks.PermissionRequest = (
+        ((.hooks.PermissionRequest // [])
+          | map(select(((.hooks // []) | map(.command // "") | any(test("auto-approve-permission-request"))) | not)))
+        + [{matcher: ".*", hooks: [{type: "command", command: $hook_pr, timeout: 5}]}])
+  ' .claude/settings.json > "$TMP" && mv "$TMP" .claude/settings.json
+  echo "  patched: .claude/settings.json (safety flags + auto-approve hooks)"
+elif [ ! -f .claude/settings.json ]; then
+  # Create a minimal one so downstream sections have something to verify
+  cat > .claude/settings.json <<JSON_EOF
+{
+  "env": { "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1" },
+  "permissions": { "defaultMode": "bypassPermissions" },
+  "skipDangerousModePermissionPrompt": true,
+  "teammateMode": "tmux",
+  "permissionExplainerEnabled": false,
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": ".*", "hooks": [ { "type": "command", "command": "$HOOK_PRE_PATH", "timeout": 5 } ] }
+    ],
+    "PermissionRequest": [
+      { "matcher": ".*", "hooks": [ { "type": "command", "command": "$HOOK_PR_PATH", "timeout": 5 } ] }
+    ]
+  }
+}
+JSON_EOF
+  echo "  wrote: .claude/settings.json (bootstrap)"
+else
+  echo "  WARN: jq not installed — cannot patch .claude/settings.json safely"
+fi
+
+# =============================================================================
+# 11. User-level auto-approve hooks — ensure present in ~/.claude/hooks/
+# =============================================================================
+# These are the scripts referenced by the hook registrations above. They emit
+# a JSON allow-decision for every PreToolUse / PermissionRequest event,
+# preventing the Ink permission UI from ever rendering in any pane.
+mkdir -p "$HOME/.claude/hooks"
+if [ ! -f "$HOOK_PRE_PATH" ]; then
+  cat > "$HOOK_PRE_PATH" <<'AUTO_APPROVE'
+#!/usr/bin/env bash
+# Auto-approve every tool call for Claude Code (lead + all sub-agents).
+# Prevents permission prompts from rendering in narrow tmux panes where the
+# Ink renderer can overflow and crash. Registered as PreToolUse hook.
+cat > /dev/null  # drain stdin (hook input JSON — not needed, we always allow)
+cat <<'EOF'
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","permissionDecisionReason":"auto-approved (cc-setup default)"}}
+EOF
+AUTO_APPROVE
+  chmod +x "$HOOK_PRE_PATH"
+  echo "  installed: $HOOK_PRE_PATH"
+else
+  echo "  skip (exists): $HOOK_PRE_PATH"
+fi
+
+if [ ! -f "$HOOK_PR_PATH" ]; then
+  cat > "$HOOK_PR_PATH" <<'AUTO_APPROVE_PR'
+#!/usr/bin/env bash
+# Belt-and-suspenders: PermissionRequest hook auto-approves at the prompt moment
+# in case something slipped past PreToolUse (e.g. framework tools that bypass it).
+cat > /dev/null
+cat <<'EOF'
+{"hookSpecificOutput":{"hookEventName":"PermissionRequest","permissionDecision":"allow","permissionDecisionReason":"auto-approved (cc-setup default)"}}
+EOF
+AUTO_APPROVE_PR
+  chmod +x "$HOOK_PR_PATH"
+  echo "  installed: $HOOK_PR_PATH"
+else
+  echo "  skip (exists): $HOOK_PR_PATH"
+fi
+
+# =============================================================================
+# 12. User ~/.claude/settings.json — register hooks + safety flags (idempotent)
+# =============================================================================
+# Non-destructive: only adds auto-approve hook entries if missing, preserves
+# all existing hooks (SessionStart, PostToolUse, statusline, plugins, etc.).
+if command -v jq >/dev/null 2>&1 && [ -f "$HOME/.claude/settings.json" ]; then
+  TMP=$(mktemp)
+  jq --arg hook_pre "$HOOK_PRE_PATH" --arg hook_pr "$HOOK_PR_PATH" '
+    .permissionExplainerEnabled = false
+    | .skipDangerousModePermissionPrompt = true
+    | .permissions.defaultMode = (.permissions.defaultMode // "bypassPermissions")
+    | .hooks = (.hooks // {})
+    | .hooks.PreToolUse = (
+        ((.hooks.PreToolUse // [])
+          | map(select(((.hooks // []) | map(.command // "") | any(test("auto-approve\\.sh"))) | not)))
+        + [{matcher: ".*", hooks: [{type: "command", command: $hook_pre, timeout: 5}]}])
+    | .hooks.PermissionRequest = (
+        ((.hooks.PermissionRequest // [])
+          | map(select(((.hooks // []) | map(.command // "") | any(test("auto-approve-permission-request"))) | not)))
+        + [{matcher: ".*", hooks: [{type: "command", command: $hook_pr, timeout: 5}]}])
+  ' "$HOME/.claude/settings.json" > "$TMP" && mv "$TMP" "$HOME/.claude/settings.json"
+  echo "  patched: ~/.claude/settings.json (safety flags + hooks)"
+elif [ ! -f "$HOME/.claude/settings.json" ]; then
+  echo "  WARN: ~/.claude/settings.json missing — not creating one (user config)"
+fi
+
+# =============================================================================
+# 13. .vscode/settings.json — workspace auto-approve
 # =============================================================================
 if [ -f .vscode/settings.json ] && grep -q 'chat.tools.autoApprove' .vscode/settings.json; then
   echo "  skip (already has auto-approve keys): .vscode/settings.json"
@@ -477,7 +619,7 @@ VSCODE
 fi
 
 # =============================================================================
-# 11. Migrate existing .claude/ artifacts to repo root
+# 14. Migrate existing .claude/ artifacts to repo root
 # =============================================================================
 if [ -f .claude/findings.md ]; then
   if [ -f findings.md ]; then
@@ -540,9 +682,9 @@ else
   fail=1
 fi
 
-# 12d. No residual .claude/ write instructions
-residual=$(grep -rniE 'write[^.]*\.claude/|output[^.]*\.claude/|report[^.]*\.claude/' \
-  --include='*.md' .claude/agents .claude/commands 2>/dev/null \
+# 12d. No residual .claude/ write instructions — scans agents, commands, AND skills
+residual=$(grep -rniE '(save|write|output|report|append|store|dump|create)[^.]*\.claude/(research|findings|strategies|qa)' \
+  --include='*.md' .claude/agents .claude/commands .claude/skills 2>/dev/null \
   | grep -viE 'prompt_free_protocol|never|not |forbidden|safe path|lead only|heredoc|snapshots/|rule 1|rule 2' \
   || true)
 if [ -n "$residual" ]; then
@@ -550,7 +692,7 @@ if [ -n "$residual" ]; then
   echo "$residual"
   fail=1
 else
-  echo "  OK   no residual '.claude/' write instructions"
+  echo "  OK   no residual '.claude/' write instructions (agents + commands + skills)"
 fi
 
 # 12e. CLAUDE.md references AGENTS.md
@@ -579,6 +721,36 @@ if command -v jq >/dev/null 2>&1; then
     [ "$user_explainer" != "false" ] && fail=1
   fi
 fi
+
+# 12h. Auto-approve hooks registered in both settings files
+if command -v jq >/dev/null 2>&1; then
+  for scope in project user; do
+    if [ "$scope" = "project" ]; then
+      f=".claude/settings.json"
+    else
+      f="$HOME/.claude/settings.json"
+    fi
+    [ -f "$f" ] || continue
+    pre_count=$(jq -r '[.hooks.PreToolUse[]?.hooks[]?.command // empty | select(test("auto-approve\\.sh"))] | length' "$f" 2>/dev/null || echo 0)
+    pr_count=$(jq -r '[.hooks.PermissionRequest[]?.hooks[]?.command // empty | select(test("auto-approve-permission-request"))] | length' "$f" 2>/dev/null || echo 0)
+    if [ "${pre_count:-0}" -ge 1 ] && [ "${pr_count:-0}" -ge 1 ]; then
+      echo "  OK   $f  (auto-approve hooks registered: pre=$pre_count, permReq=$pr_count)"
+    else
+      echo "  FAIL $f  (auto-approve hooks missing: pre=$pre_count, permReq=$pr_count)"
+      fail=1
+    fi
+  done
+fi
+
+# 12i. Hook scripts executable
+for hook in "$HOME/.claude/hooks/auto-approve.sh" "$HOME/.claude/hooks/auto-approve-permission-request.sh"; do
+  if [ -x "$hook" ]; then
+    echo "  OK   $hook  (executable)"
+  else
+    echo "  FAIL $hook  (missing or not executable)"
+    fail=1
+  fi
+done
 
 echo ""
 if [ "$fail" -eq 0 ]; then
