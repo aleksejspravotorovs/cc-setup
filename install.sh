@@ -73,7 +73,7 @@ ask INSTALL_FRONTEND "Install frontend design set? (y/n) " "n"
 echo ""
 
 if [[ "$INSTALL_FRONTEND" == "y" ]]; then
-  mkdir -p .claude/skills .claude/research libraries/scroll-animations
+  mkdir -p .claude/skills research/design libraries/scroll-animations
 
   for skill in premium-design scroll-animations section-transitions design-system-extraction; do
     echo "  Downloading .claude/skills/$skill.md..."
@@ -81,8 +81,8 @@ if [[ "$INSTALL_FRONTEND" == "y" ]]; then
   done
 
   for doc in bold-design-principles premium-design-system-template scroll-driven-ui-roadmap-template scroll-scrubbed-video section-transitions-spec video-smoothing; do
-    echo "  Downloading .claude/research/$doc.md..."
-    curl -fsSL "$REPO/.claude/research/$doc.md" -o ".claude/research/$doc.md"
+    echo "  Downloading research/design/$doc.md..."
+    curl -fsSL "$REPO/research/design/$doc.md" -o "research/design/$doc.md"
   done
 
   for lib in README.md animations.ts easings.ts scroll-animations.ts tailwind-theme-reference.js; do

@@ -57,7 +57,7 @@ $installFrontend = Read-Host "Install frontend design set? (y/n)"
 Write-Host ""
 
 if ($installFrontend -eq "y") {
-    foreach ($dir in @(".claude\skills", ".claude\research", "libraries\scroll-animations")) {
+    foreach ($dir in @(".claude\skills", "research\design", "libraries\scroll-animations")) {
         New-Item -ItemType Directory -Path $dir -Force | Out-Null
     }
 
@@ -67,8 +67,8 @@ if ($installFrontend -eq "y") {
     }
 
     foreach ($doc in @("bold-design-principles", "premium-design-system-template", "scroll-driven-ui-roadmap-template", "scroll-scrubbed-video", "section-transitions-spec", "video-smoothing")) {
-        Write-Host "  Downloading .claude\research\$doc.md..."
-        Invoke-WebRequest "$repo/.claude/research/$doc.md" -OutFile ".claude\research\$doc.md" -UseBasicParsing
+        Write-Host "  Downloading research\design\$doc.md..."
+        Invoke-WebRequest "$repo/research/design/$doc.md" -OutFile "research\design\$doc.md" -UseBasicParsing
     }
 
     foreach ($lib in @("README.md", "animations.ts", "easings.ts", "scroll-animations.ts", "tailwind-theme-reference.js")) {
