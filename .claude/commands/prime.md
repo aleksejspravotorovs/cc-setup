@@ -1,6 +1,6 @@
 ---
-description: Lean codebase prime — context load (Claude Code)
-allowed-tools: Read, Glob
+description: Lean codebase prime — context load (Claude Code) + Obsidian vault context
+allowed-tools: Read, Glob, Bash
 ---
 
 # /prime — Lean Prime
@@ -41,7 +41,39 @@ Missing/unexpected: [anything notable]
 
 Glob for `.mcp.json`. If found, note "MCP configured." If Figma work comes up later, user can verify Figma Desktop is running then. Do NOT block session on MCP verification.
 
-## 3) Session template
+## 3) Obsidian vault context pull (non-blocking)
+
+Vault root default: `$HOME/Desktop/My AI Knowledge Base`. Override via `OBSIDIAN_VAULT` env var if installed elsewhere.
+
+**Run exactly this Bash one-liner** (silent if vault missing / no match — never blocks):
+
+```bash
+VAULT="${OBSIDIAN_VAULT:-$HOME/Desktop/My AI Knowledge Base}"
+CWD="$(pwd)"
+[ -d "$VAULT/Projects" ] && grep -rl "local_path: $CWD$" "$VAULT/Projects" 2>/dev/null | head -1
+```
+
+If the command returns a path → Read that single note (it has frontmatter with status / last_synced / tags, plus sections: Links, Related projects, Skills, and optionally Status / Backlog / Recent activity).
+
+Also run (once, non-blocking):
+
+```bash
+# Recent cross-project activity — last 3 entries from vault's global log, if exists
+[ -f "$VAULT/wiki/meta/activity-log.md" ] && tail -30 "$VAULT/wiki/meta/activity-log.md" 2>/dev/null
+```
+
+**Append to prime report** one "Obsidian" block:
+```
+Obsidian: [project slug] · status=[active|archived|paused] · last_synced=[date]
+Related: [[note1]], [[note2]]
+Skills: React, Supabase, Vite, ...
+```
+
+If no match found → print `Obsidian: no matching note for $(pwd) — skip.` and move on.
+
+**Do NOT**: write to the vault, trigger MCP calls, or block the prime report on vault I/O. If grep/read errors, continue silently.
+
+## 4) Session template
 
 Output once after prime, then proceed to work:
 ```

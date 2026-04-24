@@ -88,3 +88,24 @@ Snapshot: .claude/snapshots/last-deploy.md
 
 Next prime will auto-load this snapshot for context.
 ```
+
+## 8) Save to Obsidian wiki (cross-project knowledge base)
+
+After the snapshot is written and the deploy report is printed, invoke the `/claude-obsidian:save` skill to file the deploy summary into the shared vault at `$HOME/Desktop/My AI Knowledge Base`.
+
+Call it as:
+
+```
+/claude-obsidian:save [project-slug] — [commit-subject] ([YYYY-MM-DD])
+```
+
+Example: `/claude-obsidian:save techaccounting — nav merge PR #20 (2026-04-24)`
+
+The note should include:
+- Project / repo name
+- Branch + commit hash
+- One-paragraph summary of what shipped (pulled from the snapshot)
+- Follow-up / backlog items (copied from snapshot)
+- Link to production URL
+
+**Fail-safe**: if the vault is missing, Obsidian plugin not installed, or the save skill errors, log a single-line warning and continue — never fail the deploy on a save error. Cross-project retrieval in future sessions uses `/claude-obsidian:wiki-query` (aliases: "query: …", "what do you know about …", "based on the wiki …").
