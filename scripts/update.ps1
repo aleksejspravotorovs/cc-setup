@@ -100,7 +100,7 @@ foreach ($dir in @("scripts", ".claude\agents", ".claude\commands", ".claude\sna
 }
 
 # Scripts (includes apply-self-edit-safeguard-fix.sh — protocol patcher, runs under Git Bash)
-foreach ($file in @("setup.ps1", "start.ps1", "update.ps1", "git-watch.ps1", "fix-profile.ps1", "apply-self-edit-safeguard-fix.sh")) {
+foreach ($file in @("setup.ps1", "start.ps1", "update.ps1", "fix-profile.ps1", "apply-self-edit-safeguard-fix.sh")) {
     Write-Host "  scripts\$file"
     Invoke-WebRequest "$RepoUrl/scripts/$file" -OutFile (Join-Path $ProjectDir "scripts\$file") -UseBasicParsing
 }

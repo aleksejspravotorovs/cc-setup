@@ -44,7 +44,6 @@ The installer (`install.ps1`) downloads these files before running setup:
 
 - `scripts\setup.ps1` — full setup script
 - `scripts\start.ps1` — WSL tmux session launcher
-- `scripts\git-watch.ps1` — git status watch loop
 - `scripts\fix-profile.ps1` — PowerShell profile repair tool (UTF-8 BOM fix for Cyrillic paths)
 - `scripts\setup.bat` — batch wrapper (bypasses execution policy)
 - `scripts\start.bat` — batch wrapper for session launcher
