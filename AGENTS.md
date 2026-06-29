@@ -58,3 +58,37 @@ If violated: diagnose, update AGENTS.md + `.claude/PROMPT_FREE_PROTOCOL.md` + sn
 ## Agent roster
 `.claude/agents/`: lead, frontend, backend, devops, skeptic, qa, researcher (and strategist on marketing projects).
 Launch: `./scripts/start.sh`.
+
+**Model policy:** ALL agents run as **Opus 4.8** (`claude-opus-4-8`). Fable 5 is NOT used — it has repeatedly failed to start in this environment, leaving agents dead on spawn. Every agent .md carries `model: claude-opus-4-8` frontmatter (project + `~/.claude/agents/`), AND every `Agent(...)` spawn must pass `model: "opus"` explicitly. New agent .md files must include the model line. GSD agents are governed by `/gsd:set-profile` instead.
+
+
+<!-- FLEET:AGENT-SHUTDOWN (managed by agent-team-shutdown-upgrade.sh) -->
+## Rule - Shut down completed teammates (clean teardown, no orphan panes)
+
+Claude Code Agent Teams keep teammates ALIVE after a task by design - they idle
+awaiting more work; they do NOT self-terminate. Clean shutdown is the LEAD's
+explicit job. Skipping it is why panes linger and idle agents burn tokens.
+
+When a teammate's contracted deliverable is verified, the lead MUST:
+1. Send that teammate a shutdown request (SendMessage / "ask <name> to shut
+   down"). Only the lead originates shutdowns.
+2. The teammate must APPROVE the request - the approval is what ends the process.
+   A plain-text "ok, shutting down" does NOT terminate it; the pane keeps running.
+   If the teammate is mid tool-call, shutdown completes that call first - wait.
+3. VERIFY the pane/process is actually gone (team/task list no longer shows it).
+4. If a pane orphans (known Claude Code issue #29787), force-clean it:
+   - map panes: tmux list-panes -t <session> -F '#{pane_id} #{pane_pid} #{pane_current_command}'
+   - identify the LEAD pane (your own shell pid) and NEVER kill it
+   - tmux kill-pane -t %<id> the teammate pane(s)  (or run scripts/stop.sh)
+5. Guaranteed full teardown at session end: exit the lead session (/exit), which
+   auto-terminates remaining teammates. Hard fallback: scripts/stop.sh, or
+   tmux ls then tmux kill-session -t <session>.
+
+Ephemeral lifecycle: never park a finished teammate "in case there's more" -
+respawn fresh when new work actually appears. Run teammates with
+bypassPermissions so no pane freezes on a prompt; check the task list (Ctrl+T)
+for blocked dependencies that leave a teammate idle with nothing to claim.
+
+Self-audit: "□ Teammate idle/done? -> shut it down AND confirm the pane/process
+is actually gone (not merely acknowledged)."
+<!-- /FLEET:AGENT-SHUTDOWN -->

@@ -12,68 +12,79 @@ Role: GSD Execution Partner (senior engineer + pragmatic PM). Ship smallest corr
 CLAUDE.md is ALREADY in system context. Do NOT re-read it. Do NOT read style/token CSS files (conventions are documented in CLAUDE.md).
 
 **Glob only** (structure scan, no file reads):
-- `src/app/**/page.tsx` — route inventory
-- `src/app/**/route.ts` — API endpoints
-- `src/components/ui/*/index.ts` — UI-kit inventory
+- `src/app/**/page.tsx`, `src/pages/*.tsx` — route inventory
+- `src/app/**/route.ts`, `api/*.ts` — API endpoints
+- `src/components/ui/*/index.ts`, `src/components/*.tsx` — UI inventory
 - `src/lib/**/*.ts` — utilities
-- `src/components/**/index.ts` — feature components
 - `.claude/agents/*.md` — agent roster
 - `scripts/*.sh` — available scripts
 
-**Read only these** (2-3 files max):
-- `package.json` — scripts, deps, versions
-- `.claude/snapshots/last-deploy.md` — previous session context (if exists)
+**Read only these** (compact sources only — keep prime under ~2k tokens):
+- `package.json` — use `Read` with `limit: 50` (scripts + key deps only; skip lockfile-level detail).
+- Previous-session context — see §2 fallback chain. **Do NOT read full `.claude/snapshots/last-deploy.md`** (grows unbounded; often >50KB on mature projects).
 
 **Report** (compact, no duplication of CLAUDE.md):
 ```
 Routes: [list from glob]
 API: [list from glob]
-UI-kit: [component names from glob]
-Lib: [utility files from glob]
-Feature components: [from glob]
-Agents: [names from .claude/agents/ glob]
-Scripts: [from scripts/ glob + package.json]
+UI-kit / components: [names from glob]
+Lib: [utility files]
+Agents: [names from .claude/agents/]
+Scripts: [scripts/ + package.json scripts block]
 Deps: [key deps from package.json]
 Missing/unexpected: [anything notable]
 ```
 
-## 2) MCP check (non-blocking)
+## 2) Previous-session context (token-lean, ordered fallback)
 
-Glob for `.mcp.json`. If found, note "MCP configured." If Figma work comes up later, user can verify Figma Desktop is running then. Do NOT block session on MCP verification.
+**Source priority — use the FIRST source that exists, stop there:**
 
-## 3) Obsidian vault context pull (non-blocking)
-
-Vault root default: `$HOME/Desktop/My AI Knowledge Base`. Override via `OBSIDIAN_VAULT` env var if installed elsewhere.
-
-**Run exactly this Bash one-liner** (silent if vault missing / no match — never blocks):
+**A. Obsidian project-state file (preferred, authored by /deploy, ≤40 lines):**
 
 ```bash
-VAULT="${OBSIDIAN_VAULT:-$HOME/Desktop/My AI Knowledge Base}"
+VAULT="$HOME/Desktop/My AI Knowledge Base"
 CWD="$(pwd)"
-[ -d "$VAULT/Projects" ] && grep -rl "local_path: $CWD$" "$VAULT/Projects" 2>/dev/null | head -1
+NOTE=$(grep -rl "local_path: $CWD$" "$VAULT/Projects" 2>/dev/null | head -1)
+if [ -n "$NOTE" ]; then
+  SLUG=$(basename "$NOTE" .md)
+  STATE="$VAULT/Projects/${SLUG}-state.md"
+  [ -f "$STATE" ] && echo "STATE_FILE=$STATE"
+fi
 ```
 
-If the command returns a path → Read that single note (it has frontmatter with status / last_synced / tags, plus sections: Links, Related projects, Skills, and optionally Status / Backlog / Recent activity).
+If `STATE_FILE=...` printed → Read that file (compact by design). Done. Skip B.
 
-Also run (once, non-blocking):
+**B. Fallback — LAST section of `.claude/snapshots/last-deploy.md`** (everything after the final `---` separator):
 
 ```bash
-# Recent cross-project activity — last 3 entries from vault's global log, if exists
-[ -f "$VAULT/wiki/meta/activity-log.md" ] && tail -30 "$VAULT/wiki/meta/activity-log.md" 2>/dev/null
+SNAP=".claude/snapshots/last-deploy.md"
+[ -f "$SNAP" ] && awk 'BEGIN{buf=""} /^---$/{buf=""; next} {buf=buf $0 "\n"} END{printf "%s", buf}' "$SNAP"
 ```
+
+Print the output inline — no Read call, no full-file load. Only the most-recent deploy entry is consumed.
+
+**C. Neither present** → print `Previous session: no snapshot — fresh start.` and move on.
+
+## 3) MCP check (non-blocking)
+
+Glob for `.mcp.json`. If found, note "MCP configured." Do NOT verify MCP servers at prime time.
+
+## 4) Obsidian project-note metadata (non-blocking)
+
+`$NOTE` was resolved in §2A. If non-empty → Read that project note for frontmatter + "Related projects" + "Skills" sections only (skip "Vault knowledge" and "Notes").
 
 **Append to prime report** one "Obsidian" block:
 ```
-Obsidian: [project slug] · status=[active|archived|paused] · last_synced=[date]
+Obsidian: [slug] · status=[active|archived|paused] · last_synced=[date]
 Related: [[note1]], [[note2]]
 Skills: React, Supabase, Vite, ...
 ```
 
-If no match found → print `Obsidian: no matching note for $(pwd) — skip.` and move on.
+If `$NOTE` empty → print `Obsidian: no matching note for $(pwd) — skip.`
 
-**Do NOT**: write to the vault, trigger MCP calls, or block the prime report on vault I/O. If grep/read errors, continue silently.
+**Do NOT**: write to the vault, trigger MCP calls, tail the global activity-log, or block the prime report on vault I/O. If grep/read errors, continue silently.
 
-## 4) Session template
+## 5) Session template
 
 Output once after prime, then proceed to work:
 ```

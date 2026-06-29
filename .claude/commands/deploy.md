@@ -52,31 +52,81 @@ Conventional commit message:
 git push origin <current-branch>
 ```
 
-## 6) Session snapshot (for next /prime)
+## 6) Session snapshot (local, full history)
 
-Create/overwrite `.claude/snapshots/last-deploy.md` **via Bash heredoc** (the path is protected — see `.claude/PROMPT_FREE_PROTOCOL.md`, Rule 1):
+Append a dated entry to `.claude/snapshots/last-deploy.md` **via Bash heredoc** (the path is protected — see `.claude/PROMPT_FREE_PROTOCOL.md`, Rule 1).
+
+Append-only (never overwrite — the file is the long-term deploy log). Use this shape:
 
 ```markdown
-# Last Deploy Snapshot
-Generated: [ISO timestamp]
-Branch: [branch]
-Commit: [short hash] [commit message]
+---
 
-## Changes deployed
-[git diff --stat output]
+## YYYY-MM-DD — [one-line summary]
 
-## Build status
-[pass/fail + any warnings]
+**HEAD:** `<hash>` on `<branch>`
+**Live:** <url or N/A>
 
-## Context for next /prime
-- Key files changed: [list]
-- New components added: [list, if any]
-- New routes added: [list, if any]
-- Breaking changes: [none / description]
-- Follow-up needed: [none / description]
+### Shipped
+[2–5 bullets on what changed]
+
+### Open backlog
+[items carried forward, if any]
+
+### What was NOT touched
+[paths/systems unchanged, if notable]
 ```
 
-## 7) Output report
+## 7) Obsidian project-state file (token-lean, for /prime)
+
+Write a compact state file to the Obsidian vault. **This is what the next `/prime` will read first** — keep it ≤40 lines.
+
+```bash
+VAULT="$HOME/Desktop/My AI Knowledge Base"
+CWD="$(pwd)"
+NOTE=$(grep -rl "local_path: $CWD$" "$VAULT/Projects" 2>/dev/null | head -1)
+if [ -n "$NOTE" ]; then
+  SLUG=$(basename "$NOTE" .md)
+  STATE_FILE="$VAULT/Projects/${SLUG}-state.md"
+  # Overwrite with compact current state — /prime reads this as its primary source
+  cat > "$STATE_FILE" <<EOF
+---
+title: ${SLUG} — current state
+source: /deploy
+updated: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+branch: <BRANCH>
+head: <SHORT_HASH>
+---
+
+# ${SLUG} — Current state
+
+**Live:** <LIVE_URL or N/A>
+**Build:** <pass/fail>
+**Routes / output:** <if relevant — e.g., "288 prerendered HTML">
+
+## Recently shipped (this deploy)
+- <commit subject / 1–3 bullets on what changed>
+
+## Open backlog (top 5, most actionable first)
+- <item>
+- <item>
+
+## Lock (don't touch without reason)
+- <paths or systems>
+
+## Follow-ups / user TODOs
+- <item or "—">
+EOF
+  echo "State file: $STATE_FILE"
+else
+  echo "State file: no matching project note in vault — skipping."
+fi
+```
+
+Fill the `<PLACEHOLDERS>` with real values from the deploy before writing. The file is OVERWRITTEN every deploy (not appended — it's a live snapshot, not a log).
+
+If the vault is missing or the project has no Obsidian note: log one line and continue — never fail the deploy.
+
+## 8) Output report
 
 ```
 Deploy Complete
@@ -84,14 +134,15 @@ Deploy Complete
 Commit:   [hash] [message]
 Branch:   [branch] → origin/[branch]
 Build:    [pass/fail]
-Snapshot: .claude/snapshots/last-deploy.md
+Snapshot: .claude/snapshots/last-deploy.md (appended)
+State:    <VAULT>/Projects/<slug>-state.md (overwritten)  [or "skipped"]
 
-Next prime will auto-load this snapshot for context.
+Next prime will auto-load the vault state file for context.
 ```
 
-## 8) Save to Obsidian wiki (cross-project knowledge base)
+## 9) Save to Obsidian wiki (cross-project knowledge base)
 
-After the snapshot is written and the deploy report is printed, invoke the `/claude-obsidian:save` skill to file the deploy summary into the shared vault at `$HOME/Desktop/My AI Knowledge Base`.
+After the state file is written and the deploy report is printed, invoke the `/claude-obsidian:save` skill to file a human-readable deploy summary into the shared vault for cross-project queries.
 
 Call it as:
 

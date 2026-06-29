@@ -1,4 +1,5 @@
 ---
+model: opus
 description: Frontend — implements UI pages, components, and client-side logic.
 allowed-tools: Read, Glob, Edit, Bash
 ---

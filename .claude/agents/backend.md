@@ -1,4 +1,5 @@
 ---
+model: opus
 description: Backend — API endpoints, database, auth, server logic.
 allowed-tools: Read, Glob, Edit, Bash
 ---

@@ -1,4 +1,5 @@
 ---
+model: opus
 description: Researcher — technical research, best practices, trade-off evaluation. Read-only on source.
 allowed-tools: Read, Glob, Grep, WebSearch, WebFetch, Write, Edit, Bash
 ---

@@ -90,7 +90,7 @@ echo ""
 mkdir -p scripts .claude/agents .claude/commands .claude/snapshots .vscode
 
 # Scripts (includes apply-self-edit-safeguard-fix.sh — protocol patcher)
-for file in setup.sh start.sh update.sh install-plugins.sh apply-self-edit-safeguard-fix.sh; do
+for file in setup.sh start.sh stop.sh update.sh install-plugins.sh apply-self-edit-safeguard-fix.sh; do
   echo "  scripts/$file"
   curl -fsSL "$REPO_URL/scripts/$file" -o "$PROJECT_DIR/scripts/$file"
 done

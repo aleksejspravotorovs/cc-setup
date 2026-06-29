@@ -1,4 +1,5 @@
 ---
+model: opus
 description: DevOps — local/dev/prod setup, env vars, deployment, CI.
 allowed-tools: Read, Glob, Edit, Bash
 ---

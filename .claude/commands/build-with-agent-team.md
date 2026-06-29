@@ -118,12 +118,19 @@ When skeptic or QA report findings (HIGH or MEDIUM severity):
 - Skipping re-verification after fixes
 - Marking findings resolved without agent-verified fixes
 
-### Phase 4: Cleanup
-1. Ask each teammate to shut down — they can approve or reject with an explanation
-2. Wait for all shutdown confirmations
-3. **Only the lead** runs `TeamDelete` to clean up team resources (teammates must not run cleanup)
-4. Update `findings.md` (repo root) with resolved items
-
+### Phase 4: Cleanup (see AGENTS.md "Shut down completed teammates")
+1. The moment a teammate's deliverable is verified, send it a shutdown request
+   (SendMessage / "ask <name> to shut down"). Only the lead originates shutdowns.
+2. The teammate must APPROVE the request - approval is what ends the process; a
+   prose "ok" does NOT terminate it. If it is mid tool-call, shutdown finishes
+   that call first - wait.
+3. VERIFY each pane/process is actually gone (task list no longer shows it). If a
+   pane orphans (Claude Code #29787), force-kill the teammate pane via
+   `tmux kill-pane` (never the lead pane), or run `scripts/stop.sh` to tear down
+   the whole session.
+4. Full teardown at session end = exit the lead session (`/exit`), which
+   auto-terminates remaining teammates. `scripts/stop.sh` is the hard fallback.
+5. Update `findings.md` (repo root) with resolved items.
 ## Plan approval mode
 
 For complex or risky tasks, require teammates to plan before implementing:
